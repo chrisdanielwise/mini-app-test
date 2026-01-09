@@ -1,0 +1,1562 @@
+// =================================================================
+// ZIPHA MINI APP V2 - PRODUCTION PRISMA SCHEMA
+// Version: 2.0.0
+// Last Updated: 2026-01-07
+// =================================================================
+// FIXES APPLIED:
+// 1. Removed hardcoded merchantId default UUID (Security)
+// 2. Added missing indexes for TradeSignal.merchantId
+// 3. Standardized timestamp precision to Timestamptz(6)
+// 4. Added soft delete (deletedAt) to critical financial models
+// 5. Added marketplace models (Product, ProductVariant, Category, Order, OrderItem, RiderProfile)
+// =================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  binaryTargets   = ["native", "windows", "linux-musl-openssl-3.0.x"]
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =================================================================
+// 1. ENUMS (System Constants & Business Rules)
+// =================================================================
+
+enum LanguageCode {
+  EN @map("en")
+  RU @map("ru")
+  FR @map("fr")
+  ES @map("es")
+
+  @@map("language_code")
+}
+
+enum IntervalUnit {
+  DAY   @map("day")
+  WEEK  @map("week")
+  MONTH @map("month")
+  YEAR  @map("year")
+
+  @@map("interval_unit")
+}
+
+// Who the user is to YOU (The SaaS Platform Owner)
+enum UserRole {
+  SUPER_ADMIN      @map("super_admin") // Level 100: Full system control.
+  PLATFORM_MANAGER @map("platform_manager") // Level 80: Can ban users/merchants.
+  PLATFORM_SUPPORT @map("platform_support") // Level 40: Can view tickets/logs.
+  MERCHANT         @map("merchant") // Level 10: A Business Owner.
+  RIDER            @map("rider") // Level 5: Logistics partner.
+  USER             @map("user") // Level 0: Standard Customer.
+
+  @@map("user_role")
+}
+
+// Who the user is to a SPECIFIC MERCHANT (The Team)
+enum MerchantRole {
+  OWNER @map("owner") // Level 100: Can delete bot, manage money.
+  ADMIN @map("admin") // Level 50: Can change settings, view ledger.
+  AGENT @map("agent") // Level 10: Support staff (Approve/Appeal only).
+
+  @@map("merchant_role")
+}
+
+enum SubscriptionStatus {
+  ACTIVE    @map("active")
+  EXPIRED   @map("expired")
+  INACTIVE  @map("inactive")
+  LEFT      @map("left")
+  PENDING   @map("pending")
+  CANCELLED @map("cancelled")
+
+  @@map("subscription_status")
+}
+
+enum SubscriptionType {
+  ONE_MONTH     @map("one_month")
+  THREE_MONTHS  @map("three_months")
+  SIX_MONTHS    @map("six_months")
+  TWELVE_MONTHS @map("twelve_months")
+  LIFETIME      @map("lifetime")
+  CUSTOM        @map("custom")
+
+  @@map("subscription_type")
+}
+
+enum MembershipStatus {
+  JOINED           @map("joined")
+  NOT_JOINED       @map("not_joined")
+  REMOVED_BY_BOT   @map("removed_by_bot")
+  REMOVED_BY_ADMIN @map("removed_by_admin")
+  LEFT_GROUP       @map("left_group")
+
+  @@map("membership_status")
+}
+
+enum PaymentStatus {
+  PENDING  @map("pending")
+  SUCCESS  @map("success")
+  REJECTED @map("rejected")
+  OUTDATED @map("outdated")
+  REPLACED @map("replaced")
+  FAILED   @map("failed")
+  REFUNDED @map("refunded")
+
+  @@map("payment_status")
+}
+
+enum PayoutStatus {
+  PENDING    @map("pending")
+  PROCESSING @map("processing")
+  PAID       @map("paid")
+  REJECTED   @map("rejected")
+
+  @@map("payout_status")
+}
+
+enum LedgerType {
+  CREDIT @map("credit")
+  DEBIT  @map("debit")
+
+  @@map("ledger_type")
+}
+
+enum TicketPriority {
+  LOW    @map("low")
+  MEDIUM @map("medium")
+  HIGH   @map("high")
+  URGENT @map("urgent")
+
+  @@map("ticket_priority")
+}
+
+enum TicketCategory {
+  PAYMENT_ISSUE @map("payment_issue")
+  ACCESS_ISSUE  @map("access_issue")
+  COPIER_ISSUE  @map("copier_issue")
+  ORDER_ISSUE   @map("order_issue")
+  OTHER         @map("other")
+
+  @@map("ticket_category")
+}
+
+enum SenderType {
+  CUSTOMER @map("customer")
+  AGENT    @map("agent")
+  SYSTEM   @map("system")
+
+  @@map("sender_type")
+}
+
+enum DiscountType {
+  PERCENTAGE @map("percentage")
+  FIXED      @map("fixed")
+
+  @@map("discount_type")
+}
+
+enum CouponScope {
+  GLOBAL           @map("global")
+  SPECIFIC_SERVICE @map("specific_service")
+
+  @@map("coupon_scope")
+}
+
+enum NotificationType {
+  INFO    @map("info")
+  SUCCESS @map("success")
+  WARNING @map("warning")
+  ERROR   @map("error")
+
+  @@map("notification_type")
+}
+
+enum ProvisioningStep {
+  IDLE                   @map("idle")
+  CREATING_USER          @map("creating_user")
+  PROVISIONING_BOT       @map("provisioning_bot")
+  CREATING_CHANNEL       @map("creating_channel")
+  TRANSFERRING_OWNERSHIP @map("transferring_ownership")
+  COMPLETED              @map("completed")
+  FAILED                 @map("failed")
+
+  @@map("provisioning_step")
+}
+
+enum DocStatus {
+  PENDING  @map("pending")
+  APPROVED @map("approved")
+  REJECTED @map("rejected")
+
+  @@map("doc_status")
+}
+
+enum ExecutionStatus {
+  PENDING @map("pending")
+  SUCCESS @map("success")
+  FAILED  @map("failed")
+  SKIPPED @map("skipped")
+
+  @@map("execution_status")
+}
+
+enum FeedbackType {
+  NATIVE_POLL   @map("native_poll")
+  INLINE_SURVEY @map("inline_survey")
+
+  @@map("feedback_type")
+}
+
+enum FeedbackSentiment {
+  POSITIVE @map("positive")
+  NEUTRAL  @map("neutral")
+  NEGATIVE @map("negative")
+
+  @@map("feedback_sentiment")
+}
+
+// NEW: Order status for marketplace
+enum OrderStatus {
+  PENDING_PAYMENT  @map("pending_payment")
+  PAID_ESCROW      @map("paid_escrow")
+  PACKING          @map("packing")
+  READY_FOR_PICKUP @map("ready_for_pickup")
+  DISPATCHED       @map("dispatched")
+  DELIVERED        @map("delivered")
+  DISPUTED         @map("disputed")
+  REFUNDED         @map("refunded")
+  COMPLETED        @map("completed")
+
+  @@map("order_status")
+}
+
+// NEW: Dispatch type for logistics
+enum DispatchType {
+  BIKE  @map("bike")
+  VAN   @map("van")
+  TRUCK @map("truck")
+
+  @@map("dispatch_type")
+}
+
+// =================================================================
+// 2. CORE IDENTITY (The "Passport")
+// =================================================================
+
+model User {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  // Identity
+  telegramId  BigInt  @unique @map("user_id")
+  fullName    String? @map("full_name")
+  username    String? @map("username")
+  phoneNumber String? @map("phone_number")
+  displayName String? @map("display_name")
+  email       String? @unique @map("email")
+  firstName   String? @map("first_name")
+  lastName    String? @map("last_name")
+
+  language LanguageCode @default(EN) @map("language")
+  role     UserRole     @default(USER) @map("role")
+
+  // Soft Delete
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // --- RELATIONSHIPS ---
+
+  // Ownership
+  merchantProfile MerchantProfile? @relation("MerchantOwner")
+  riderProfile    RiderProfile?
+
+  // Team Memberships
+  teamMemberships MerchantTeam[]
+
+  // Context & History
+  merchantContexts MerchantUserContext[]
+  groupMemberships GroupMembership[]
+  feedbacks        Feedback[]
+
+  // Financials
+  subscriptions        Subscription[]
+  platformSubscription PlatformSubscription?
+  payments             Payment[]
+  couponRedemptions    CouponRedemption[]
+
+  // Marketplace Orders
+  orders Order[]
+
+  // Support & Affiliate
+  affiliateLinks       AffiliateLink[]
+  affiliateConversions AffiliateConversion[]
+  ticketsCreated       Ticket[]              @relation("UserTickets")
+  ticketsAssigned      Ticket[]              @relation("AgentTickets")
+  copierSettings       CopierSetting?
+  copierExecutions     CopierExecution[]
+
+  // Operations
+  notifications    DashboardNotification[]
+  actionsPerformed AuditLog[]              @relation("AuditActor")
+
+  // Legacy
+  screenshots     Screenshot[]
+  receivedCoupons Coupon[]       @relation("Recipient")
+  createdCoupons  Coupon[]       @relation("Creator")
+  menuState       UserMenuState?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([telegramId])
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+// Platform Base Subscription (SaaS Fee)
+model PlatformSubscription {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  userId String @unique @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id])
+
+  status    SubscriptionStatus @default(INACTIVE)
+  expiresAt DateTime?          @db.Timestamptz(6)
+
+  paymentMethodId String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@map("platform_subscriptions")
+}
+
+// =================================================================
+// 3. MERCHANT SYSTEM (The Tenant)
+// =================================================================
+
+model MerchantProfile {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  // Link to Owner
+  adminUserId BigInt @unique @map("admin_user_id")
+  adminUser   User   @relation("MerchantOwner", fields: [adminUserId], references: [telegramId])
+
+  // SaaS Billing
+  planId        String?            @map("plan_id") @db.Uuid
+  plan          PlatformPlan?      @relation(fields: [planId], references: [id])
+  planStatus    SubscriptionStatus @default(ACTIVE) @map("plan_status")
+  planExpiresAt DateTime?          @map("plan_expires_at") @db.Timestamptz(6)
+
+  companyName String? @map("company_name")
+  botUsername String? @map("bot_username")
+
+  // Bot Identity
+  botId    BigInt? @unique @map("bot_id")
+  botToken String? @map("bot_token") // MUST be encrypted at application layer
+
+  // Wallet Balances (FIXED: proper Decimal precision)
+  availableBalance Decimal @default(0) @map("available_balance") @db.Decimal(20, 8)
+  pendingEscrow    Decimal @default(0) @map("pending_escrow") @db.Decimal(20, 8)
+
+  // Soft Delete
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  // --- RELATIONS ---
+  botConfig     MerchantBotConfig?
+  teamMembers   MerchantTeam[]
+  userContexts  MerchantUserContext[]
+  subscriptions Subscription[]         @relation("MerchantSubscriptions")
+  paymentConfig MerchantPaymentConfig?
+  analytics     MerchantAnalytics?
+  feedbacks     Feedback[]
+  payments      Payment[]
+
+  // Marketplace
+  products   Product[]
+  categories Category[]
+  orders     Order[]
+
+  // Operational Data
+  services      Service[]
+  coupons       Coupon[]
+  ledgerEntries Ledger[]
+  refunds       Refund[]
+  payouts       PayoutRequest[]
+  auditLogs     AuditLog[]
+  adCampaigns   AdCampaign[]
+  documents     VerificationDocument[]
+
+  affiliateLinks AffiliateLink[]
+  challenges     AffiliateChallenge[]
+
+  lastLoginToken String?   @map("last_login_token")
+  tokenExpires   DateTime? @map("token_expires") @db.Timestamptz(6)
+
+  // Configuration
+  approvalChannelId BigInt? @map("approval_channel_id")
+  contactSupportUrl String? @map("contact_support_url")
+  googleDriveLink   String? @map("google_drive_link")
+  vipReportUrl      String? @map("vip_report_url")
+  xmBrokerUrl       String? @map("xm_broker_url")
+  exnessBrokerUrl   String? @map("exness_broker_url")
+  propFirmUrl       String? @map("prop_firm_url")
+  payoutConfig      Json?   @map("payout_config")
+
+  isVerified   Boolean @default(false) @map("is_verified")
+  trustScore   Int     @default(50) @map("trust_score")
+  mt4AccountId String? @map("mt4_account_id")
+
+  // Provisioning Tracker
+  provisioningStatus ProvisioningStep @default(IDLE) @map("provisioning_status")
+  provisioningError  String?          @map("provisioning_error")
+
+  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  merchantDailyMetrics MerchantDailyMetric[]
+  screenshots          Screenshot[]
+  faqs                 FAQItem[]
+
+  @@index([companyName])
+  @@index([provisioningStatus, updatedAt])
+  @@index([botId])
+  @@map("merchants")
+}
+
+// SaaS Plans
+model PlatformPlan {
+  id          String  @id @default(uuid()) @map("id") @db.Uuid
+  name        String  @unique @map("name")
+  description String? @map("description")
+
+  priceMonthly Decimal @default(0) @map("price_monthly") @db.Decimal(20, 8)
+  priceYearly  Decimal @default(0) @map("price_yearly") @db.Decimal(20, 8)
+
+  transactionFeePercent Decimal @default(5.0) @map("transaction_fee_percent") @db.Decimal(5, 2)
+  maxSubscribers        Int     @default(50) @map("max_subscribers")
+  maxTeamMembers        Int     @default(0) @map("max_team_members")
+  maxServices           Int     @default(1) @map("max_services")
+
+  allowCoupons    Boolean @default(false) @map("allow_coupons")
+  allowWhitelabel Boolean @default(false) @map("allow_whitelabel")
+  allowBroadcasts Boolean @default(false) @map("allow_broadcasts")
+
+  merchants MerchantProfile[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("platform_plans")
+}
+
+// Merchant Team (Staff)
+model MerchantTeam {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  merchantId String          @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role MerchantRole @default(AGENT) @map("role")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([merchantId, userId])
+  @@index([merchantId])
+  @@index([userId])
+  @@map("merchant_teams")
+}
+
+// Merchant User Context
+model MerchantUserContext {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  merchantId String          @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  inviteLink String? @map("invite_link")
+  inviteName String? @map("invite_name")
+
+  lastActiveAt DateTime @default(now()) @map("last_active_at") @db.Timestamptz(6)
+
+  @@unique([userId, merchantId])
+  @@index([userId])
+  @@index([merchantId])
+  @@map("merchant_user_contexts")
+}
+
+// Group Membership (Channel Joins)
+model GroupMembership {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  channelId BigInt @map("channel_id")
+
+  status    MembershipStatus @default(NOT_JOINED)
+  joinedAt  DateTime?        @map("joined_at") @db.Timestamptz(6)
+  removedAt DateTime?        @map("removed_at") @db.Timestamptz(6)
+  reason    String?          @map("reason")
+
+  @@unique([userId, channelId])
+  @@index([userId])
+  @@index([channelId])
+  @@index([status])
+  @@map("group_memberships")
+}
+
+// Rider Profile (Logistics)
+model RiderProfile {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  userId String @unique @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id])
+
+  vehicleType DispatchType @default(BIKE) @map("vehicle_type")
+  isVerified  Boolean      @default(false) @map("is_verified")
+  isAvailable Boolean      @default(true) @map("is_available")
+
+  // Current location (for dispatch optimization)
+  lastLatitude  Decimal? @map("last_latitude") @db.Decimal(10, 8)
+  lastLongitude Decimal? @map("last_longitude") @db.Decimal(11, 8)
+
+  activeOrders Order[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([vehicleType, isAvailable])
+  @@map("rider_profiles")
+}
+
+// =================================================================
+// 4. MARKETPLACE MODELS (Physical Goods)
+// =================================================================
+
+// Category Tree (Amazon-style drill-down)
+model Category {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  merchantId String          @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  name     String  @map("name")
+  slug     String  @map("slug")
+  imageUrl String? @map("image_url")
+
+  parentId String?    @map("parent_id") @db.Uuid
+  parent   Category?  @relation("SubCategories", fields: [parentId], references: [id])
+  children Category[] @relation("SubCategories")
+
+  // If isLeaf = false: Bot shows sub-category buttons
+  // If isLeaf = true: Bot shows products
+  isLeaf   Boolean @default(false) @map("is_leaf")
+  isActive Boolean @default(true) @map("is_active")
+
+  products Product[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([merchantId, slug])
+  @@index([merchantId])
+  @@index([parentId])
+  @@map("categories")
+}
+
+// Product (Physical Goods)
+model Product {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  merchantId String          @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  categoryId String   @map("category_id") @db.Uuid
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  name        String  @map("name")
+  slug        String  @map("slug")
+  description String? @map("description")
+  basePrice   Decimal @map("base_price") @db.Decimal(20, 8)
+  currency    String  @default("USD") @map("currency")
+
+  // Primary image (variants can have their own)
+  imageUrl String? @map("image_url")
+
+  // Logistics: Which Forum Topic to post in
+  dispatchType DispatchType @default(BIKE) @map("dispatch_type")
+
+  // Gallery sorting
+  popularity Int     @default(0) @map("popularity")
+  isActive   Boolean @default(true) @map("is_active")
+
+  variants   ProductVariant[]
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([merchantId, slug])
+  @@index([merchantId, categoryId])
+  @@index([merchantId, isActive])
+  @@index([popularity])
+  @@map("products")
+}
+
+// Product Variant (Size/Color combinations)
+model ProductVariant {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  sku        String? @unique @map("sku")
+  attributes Json    @map("attributes") // { "color": "Red", "size": "44" }
+  price      Decimal @map("price") @db.Decimal(20, 8)
+  stock      Int     @default(0) @map("stock")
+  mediaUrl   String? @map("media_url")
+
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([productId])
+  @@map("product_variants")
+}
+
+// =================================================================
+// 5. ORDERS & ESCROW
+// =================================================================
+
+model Order {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  customerId String @map("customer_id") @db.Uuid
+  customer   User   @relation(fields: [customerId], references: [id])
+
+  merchantId String          @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id])
+
+  status      OrderStatus @default(PENDING_PAYMENT) @map("status")
+  totalAmount Decimal     @map("total_amount") @db.Decimal(20, 8)
+  currency    String      @default("USD") @map("currency")
+
+  // Shipping Address
+  shippingName    String? @map("shipping_name")
+  shippingPhone   String? @map("shipping_phone")
+  shippingAddress String? @map("shipping_address")
+  shippingCity    String? @map("shipping_city")
+  shippingState   String? @map("shipping_state")
+  shippingZip     String? @map("shipping_zip")
+  shippingCountry String? @map("shipping_country")
+
+  // Logistics
+  riderId        String?       @map("rider_id") @db.Uuid
+  rider          RiderProfile? @relation(fields: [riderId], references: [id])
+  dispatchedAt   DateTime?     @map("dispatched_at") @db.Timestamptz(6)
+  deliveredAt    DateTime?     @map("delivered_at") @db.Timestamptz(6)
+  trackingNumber String?       @map("tracking_number")
+
+  // Notes
+  customerNote String? @map("customer_note")
+  merchantNote String? @map("merchant_note")
+
+  items    OrderItem[]
+  payments OrderPayment[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([customerId])
+  @@index([merchantId, status])
+  @@index([riderId, status])
+  @@index([status, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  orderId String @map("order_id") @db.Uuid
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  variantId String?         @map("variant_id") @db.Uuid
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+
+  // Snapshot at purchase time
+  productName String  @map("product_name")
+  variantInfo Json?   @map("variant_info") // Snapshot of variant attributes
+  unitPrice   Decimal @map("unit_price") @db.Decimal(20, 8)
+  quantity    Int     @map("quantity")
+  totalPrice  Decimal @map("total_price") @db.Decimal(20, 8)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+// Payments for Orders (separate from Subscription Payments)
+model OrderPayment {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  orderId String @map("order_id") @db.Uuid
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  amount           Decimal       @map("amount") @db.Decimal(20, 8)
+  currency         String        @map("currency")
+  status           PaymentStatus @default(PENDING) @map("status")
+  gatewayProvider  String        @map("gateway_provider")
+  gatewayReference String        @unique @map("gateway_reference")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([orderId])
+  @@map("order_payments")
+}
+
+// =================================================================
+// 6. SUBSCRIPTION SERVICES (Digital Products)
+// =================================================================
+
+model Service {
+  id         String          @id @default(uuid()) @map("id") @db.Uuid
+  merchantId String          @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id])
+
+  name        String  @map("name")
+  description String? @map("description")
+  currency    String  @default("USD") @map("currency")
+
+  vipChannelId  BigInt? @map("vip_channel_id")
+  vipInviteLink String? @map("vip_invite_link")
+  isActive      Boolean @default(true) @map("is_active")
+  autoAdd       Boolean @default(true) @map("auto_add")
+  categoryTag   String? @map("category_tag")
+
+  tiers         ServiceTier[]
+  subscriptions Subscription[]
+  payments      Payment[]
+  screenshots   Screenshot[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  coupons   Coupon[]
+
+  @@index([merchantId])
+  @@map("services")
+}
+
+model ServiceTier {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  serviceId String  @map("service_id") @db.Uuid
+  /**
+   * * 🛡️ WORLD-STANDARD CASCADING:
+   * Added 'onDelete: Cascade' to ensure child tiers are purged when parent service is revoked.
+   */
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  name  String  @map("name")
+  price Decimal @map("price") @db.Decimal(20, 8)
+
+  compareAtPrice     Decimal?         @map("compare_at_price") @db.Decimal(20, 8)
+  discountPercentage Int              @default(0) @map("discount_percentage")
+  interval           IntervalUnit     @default(MONTH) @map("interval")
+  intervalCount      Int              @default(1) @map("interval_count")
+  type               SubscriptionType @default(CUSTOM) @map("type")
+
+  isActive Boolean @default(true) @map("is_active")
+
+  subscriptions Subscription[]
+  coupons       Coupon[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([serviceId])
+  @@map("service_tiers")
+}
+
+model Subscription {
+  id     String @id @default(uuid()) @map("id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id])
+
+  serviceId String  @map("service_id") @db.Uuid
+  service   Service @relation(fields: [serviceId], references: [id])
+
+  merchantId String          @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation("MerchantSubscriptions", fields: [merchantId], references: [id])
+
+  serviceTierId String?      @map("service_tier_id") @db.Uuid
+  serviceTier   ServiceTier? @relation(fields: [serviceTierId], references: [id])
+
+  inviteLink String? @map("invite_link")
+
+  status    SubscriptionStatus @default(ACTIVE) @map("status")
+  startsAt  DateTime           @default(now()) @map("starts_at") @db.Timestamptz(6)
+  expiresAt DateTime           @map("expires_at") @db.Timestamptz(6)
+
+  renewals Int @default(0) @map("renewals")
+
+  payments            Payment[]
+  feedbacks           Feedback[]
+  subscriptionInvites SubscriptionInvite[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([userId, serviceId], name: "userId_serviceId")
+  @@index([userId])
+  @@index([merchantId, status])
+  @@index([status, expiresAt])
+  @@map("subscriptions")
+}
+
+// =================================================================
+// 7. PAYMENTS & LEDGER
+// =================================================================
+
+model Payment {
+  id     String @id @default(uuid()) @map("id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id])
+
+  subscriptionId String?       @map("subscription_id") @db.Uuid
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  // FIXED: Removed hardcoded default UUID - merchantId is now required
+  merchantId String          @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id])
+
+  serviceId String  @map("service_id") @db.Uuid
+  service   Service @relation(fields: [serviceId], references: [id])
+
+  serviceTierId    String? @map("service_tier_id") @db.Uuid
+  tierNameSnapshot String? @map("tier_name_snapshot")
+
+  // Financial Snapshot
+  amount          Decimal  @map("amount") @db.Decimal(20, 8)
+  originalPrice   Decimal? @map("original_price") @db.Decimal(20, 8)
+  discountApplied Decimal? @map("discount_applied") @db.Decimal(20, 8)
+  currency        String   @map("currency")
+
+  // Coupon Attribution
+  couponId   String? @map("coupon_id") @db.Uuid
+  couponCode String? @map("coupon_code")
+
+  // Exchange Rate Audit
+  exchangeRate Decimal? @map("exchange_rate") @db.Decimal(20, 8)
+  originalUSD  Decimal? @map("original_usd") @db.Decimal(20, 8)
+
+  status        PaymentStatus @default(PENDING) @map("status")
+  paymentMethod String?       @map("payment_method")
+
+  // Gateway Info
+  gatewayProvider       String  @map("gateway_provider")
+  gatewayReference      String  @unique @map("gateway_reference")
+  providerTransactionId String? @unique @map("provider_transaction_id")
+  providerResponse      Json?   @map("provider_response")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  feedbacks           Feedback[]
+  ledgerEntry         Ledger?
+  refunds             Refund[]
+  affiliateConversion AffiliateConversion?
+
+  @@index([userId, createdAt])
+  @@index([subscriptionId])
+  @@index([merchantId, status])
+  @@map("payments")
+}
+
+model Refund {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  merchantId String          @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id])
+
+  paymentId String  @map("payment_id") @db.Uuid
+  payment   Payment @relation(fields: [paymentId], references: [id])
+
+  amount Decimal @map("amount") @db.Decimal(20, 8)
+  reason String? @map("reason")
+
+  status           String  @default("PENDING") @map("status")
+  approvedByUserId String? @map("approved_by_user_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([merchantId])
+  @@map("refunds")
+}
+
+model PayoutRequest {
+  id          String          @id @default(uuid()) @map("id") @db.Uuid
+  merchantId  String          @map("merchant_id") @db.Uuid
+  merchant    MerchantProfile @relation(fields: [merchantId], references: [id])
+  amount      Decimal         @map("amount") @db.Decimal(20, 8)
+  currency    String          @default("USD") @map("currency")
+  status      PayoutStatus    @default(PENDING) @map("status")
+  destination String          @map("destination")
+
+  requestedAt    DateTime  @default(now()) @map("requested_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  processedAt    DateTime? @map("processed_at") @db.Timestamptz(6)
+  processedBy    String?   @map("processed_by") @db.Uuid
+  transactionRef String?   @map("transaction_ref")
+
+  @@index([merchantId])
+  @@index([status])
+  @@map("payout_requests")
+}
+
+model MerchantPaymentConfig {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  merchantId String          @unique @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  stripeSecretKey   String? @map("stripe_secret_key")
+  paystackSecretKey String? @map("paystack_secret_key")
+  cryptoWallets     Json?   @map("crypto_wallets")
+  bankDetails       Json?   @map("bank_details")
+
+  isEnabled Boolean  @default(true) @map("is_enabled")
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("merchant_payment_configs")
+}
+
+model Ledger {
+  id         String          @id @default(uuid()) @map("id") @db.Uuid
+  merchantId String          @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id])
+  paymentId  String?         @unique @map("payment_id") @db.Uuid
+  payment    Payment?        @relation(fields: [paymentId], references: [id])
+
+  amount       Decimal    @map("amount") @db.Decimal(20, 8)
+  type         LedgerType @map("type")
+  description  String     @map("description")
+  balanceAfter Decimal    @map("balance_after") @db.Decimal(20, 8)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([merchantId])
+  @@index([merchantId, createdAt])
+  @@map("ledgers")
+}
+
+// =================================================================
+// 8. COUPONS & PROMOTIONS
+// =================================================================
+
+model Coupon {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  merchantId String          @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  // 1. Add the Service ID field
+  serviceId String? @map("service_id") @db.Uuid
+
+  // 2. Define the relation to the Service model
+  service Service? @relation(fields: [serviceId], references: [id])
+
+  code         String       @map("code")
+  description  String?      @map("description")
+  discountType DiscountType @default(PERCENTAGE) @map("discount_type")
+  amount       Decimal      @map("amount") @db.Decimal(20, 8)
+
+  scope             CouponScope @default(GLOBAL) @map("scope")
+  specificServiceId String?     @map("specific_service_id") @db.Uuid
+
+  maxUses        Int? @map("max_uses")
+  maxUsesPerUser Int  @default(1) @map("max_uses_per_user")
+  currentUses    Int  @default(0) @map("current_uses")
+
+  startsAt  DateTime? @map("starts_at") @db.Timestamptz(6)
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz(6)
+  isActive  Boolean   @default(true) @map("is_active")
+
+  redemptions CouponRedemption[]
+  tiers       ServiceTier[]
+
+  creatorId   String?  @map("creator_id") @db.Uuid
+  creator     User?    @relation("Creator", fields: [creatorId], references: [id])
+  recipientId String?  @map("recipient_id") @db.Uuid
+  recipient   User?    @relation("Recipient", fields: [recipientId], references: [id])
+  options     Json?    @map("options")
+  redeemed    Boolean? @default(false) @map("redeemed")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([merchantId, code])
+  @@index([createdAt])
+  @@map("coupons")
+}
+
+model CouponRedemption {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id])
+
+  couponId String @map("coupon_id") @db.Uuid
+  coupon   Coupon @relation(fields: [couponId], references: [id])
+
+  subscriptionId String? @map("subscription_id") @db.Uuid
+
+  appliedAt DateTime @default(now()) @map("applied_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@index([couponId])
+  @@map("coupon_redemptions")
+}
+
+// =================================================================
+// 9. AFFILIATES & MARKETING
+// =================================================================
+
+model AffiliateLink {
+  id          String          @id @default(uuid()) @map("id") @db.Uuid
+  merchantId  String          @map("merchant_id") @db.Uuid
+  merchant    MerchantProfile @relation(fields: [merchantId], references: [id])
+  affiliateId String          @map("affiliate_id") @db.Uuid
+  affiliate   User            @relation(fields: [affiliateId], references: [id])
+
+  code          String  @unique @map("code")
+  clicks        Int     @default(0) @map("clicks")
+  conversions   Int     @default(0) @map("conversions")
+  totalEarnings Decimal @default(0) @map("total_earnings") @db.Decimal(20, 8)
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  conversionsList AffiliateConversion[]
+
+  @@index([merchantId])
+  @@index([affiliateId])
+  @@map("affiliate_links")
+}
+
+model AffiliateConversion {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  affiliateLinkId String        @map("affiliate_link_id") @db.Uuid
+  affiliateLink   AffiliateLink @relation(fields: [affiliateLinkId], references: [id])
+
+  referredUserId String @map("referred_user_id") @db.Uuid
+  referredUser   User   @relation(fields: [referredUserId], references: [id])
+
+  paymentId String  @unique @map("payment_id") @db.Uuid
+  payment   Payment @relation(fields: [paymentId], references: [id])
+
+  commissionAmount Decimal? @map("commission_amount") @db.Decimal(20, 8)
+  status           String   @default("PENDING") @map("status")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([affiliateLinkId])
+  @@map("affiliate_conversions")
+}
+
+model AffiliateChallenge {
+  id         String          @id @default(uuid()) @map("id") @db.Uuid
+  merchantId String          @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id])
+  name       String          @map("name")
+  startDate  DateTime        @map("start_date") @db.Timestamptz(6)
+  endDate    DateTime        @map("end_date") @db.Timestamptz(6)
+  prizePool  Json?           @map("prize_pool")
+  isActive   Boolean         @default(true) @map("is_active")
+  createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([merchantId])
+  @@map("affiliate_challenges")
+}
+
+model AdCampaign {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  merchantId String          @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id])
+
+  advertiserName String? @map("advertiser_name")
+  content        String  @map("content")
+  link           String? @map("link")
+  targetCategory String? @map("target_category")
+
+  views     Int      @default(0) @map("views")
+  clicks    Int      @default(0) @map("clicks")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([merchantId])
+  @@map("ad_campaigns")
+}
+
+// =================================================================
+// 10. ANALYTICS & OPERATIONS
+// =================================================================
+
+model MerchantAnalytics {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  merchantId String          @unique @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  totalRevenue     Decimal @default(0.00) @map("total_revenue") @db.Decimal(20, 8)
+  netRevenue       Decimal @default(0.00) @map("net_revenue") @db.Decimal(20, 8)
+  totalSubscribers Int     @default(0) @map("total_subscribers")
+  totalDiscounts   Decimal @default(0.00) @map("total_discounts") @db.Decimal(20, 8)
+
+  revenueToday     Decimal @default(0.00) @map("revenue_today") @db.Decimal(20, 8)
+  revenueThisMonth Decimal @default(0.00) @map("revenue_this_month") @db.Decimal(20, 8)
+  newSubsToday     Int     @default(0) @map("new_subs_today")
+  newSubsThisMonth Int     @default(0) @map("new_subs_this_month")
+
+  openTickets Int @default(0) @map("open_tickets")
+  activeSubs  Int @default(0) @map("active_subs")
+  expiredSubs Int @default(0) @map("expired_subs")
+
+  lastUpdated DateTime @updatedAt @map("last_updated") @db.Timestamptz(6)
+
+  @@map("merchant_analytics")
+}
+
+model MerchantDailyMetric {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  merchantId String          @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  date DateTime @db.Date
+
+  dailyRevenue       Decimal @default(0.00) @map("daily_revenue") @db.Decimal(20, 8)
+  dailyNewSubs       Int     @default(0) @map("daily_new_subs")
+  dailyActiveSubs    Int     @default(0) @map("daily_active_subs")
+  dailyCancellations Int     @default(0) @map("daily_cancellations")
+
+  // NEW: Order metrics
+  dailyOrders       Int     @default(0) @map("daily_orders")
+  dailyOrderRevenue Decimal @default(0.00) @map("daily_order_revenue") @db.Decimal(20, 8)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([merchantId, date])
+  @@index([date])
+  @@map("merchant_daily_metrics")
+}
+
+model AuditLog {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  merchantId String          @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  actorId String @map("actor_id") @db.Uuid
+  actor   User   @relation("AuditActor", fields: [actorId], references: [id])
+
+  action    String  @map("action")
+  resource  String  @map("resource")
+  metadata  Json?   @map("metadata")
+  ipAddress String? @map("ip_address")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([merchantId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model DashboardNotification {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  userId     String  @map("user_id") @db.Uuid
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchantId String? @map("merchant_id") @db.Uuid
+
+  title   String           @map("title")
+  message String           @map("message")
+  type    NotificationType @default(INFO) @map("type")
+
+  isRead Boolean @default(false) @map("is_read")
+  link   String? @map("link")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("dashboard_notifications")
+}
+
+model VerificationDocument {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  merchantId String          @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  type    String @map("type")
+  fileUrl String @map("file_url")
+
+  status          DocStatus @default(PENDING) @map("status")
+  rejectionReason String?   @map("rejection_reason")
+
+  uploadedAt DateTime  @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  verifiedAt DateTime? @map("verified_at") @db.Timestamptz(6)
+
+  @@index([merchantId])
+  @@map("verification_documents")
+}
+
+// =================================================================
+// 11. SUPPORT & TICKETS
+// =================================================================
+
+model Ticket {
+  id               String          @id @default(uuid()) @map("id") @db.Uuid
+  userId           String          @map("user_id") @db.Uuid
+  user             User            @relation("UserTickets", fields: [userId], references: [id])
+  merchantId       String?         @map("merchant_id")
+  assignedAgentId  String?         @map("assigned_agent_id") @db.Uuid
+  agent            User?           @relation("AgentTickets", fields: [assignedAgentId], references: [id])
+  subject          String          @map("subject")
+  status           String          @default("OPEN") @map("status")
+  priority         TicketPriority  @default(MEDIUM) @map("priority")
+  category         TicketCategory  @default(OTHER) @map("category")
+  relatedPaymentId String?         @map("related_payment_id")
+  relatedOrderId   String?         @map("related_order_id") @db.Uuid
+  messages         TicketMessage[]
+  feedbacks        Feedback[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@index([merchantId])
+  @@index([status])
+  @@index([assignedAgentId])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id         String     @id @default(uuid()) @map("id") @db.Uuid
+  ticketId   String     @map("ticket_id") @db.Uuid
+  ticket     Ticket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderId   String     @map("sender_id") @db.Uuid
+  senderType SenderType @default(CUSTOMER) @map("sender_type")
+
+  message    String  @map("message")
+  isInternal Boolean @default(false) @map("is_internal")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([ticketId])
+  @@map("ticket_messages")
+}
+
+// =================================================================
+// 12. COPIER TRADING
+// =================================================================
+
+model TradeSignal {
+  id         String   @id @default(uuid()) @map("id") @db.Uuid
+  merchantId String   @map("merchant_id") @db.Uuid
+  symbol     String   @map("symbol")
+  action     String   @map("action")
+  entryPrice Decimal  @map("entry_price") @db.Decimal(10, 5)
+  stopLoss   Decimal? @map("stop_loss") @db.Decimal(10, 5)
+  takeProfit Decimal? @map("take_profit") @db.Decimal(10, 5)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  executions CopierExecution[]
+
+  // FIXED: Added missing index
+  @@index([merchantId])
+  @@index([createdAt])
+  @@map("trade_signals")
+}
+
+model CopierSetting {
+  id           String   @id @default(uuid()) @map("id") @db.Uuid
+  userId       String   @unique @map("user_id") @db.Uuid
+  user         User     @relation(fields: [userId], references: [id])
+  mt4AccountId String   @map("mt4_account_id")
+  mt4Password  String   @map("mt4_password") // MUST be encrypted
+  brokerServer String   @map("broker_server")
+  isEnabled    Boolean  @default(false) @map("is_enabled")
+  riskType     String   @default("FIXED_LOT") @map("risk_type")
+  riskValue    Decimal  @map("risk_value") @db.Decimal(20, 8)
+  maxDrawdown  Decimal? @map("max_drawdown") @db.Decimal(20, 8)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("copier_settings")
+}
+
+model CopierExecution {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  signalId String      @map("signal_id") @db.Uuid
+  signal   TradeSignal @relation(fields: [signalId], references: [id])
+
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id])
+
+  status        ExecutionStatus @default(PENDING) @map("status")
+  brokerTicket  String?         @map("broker_ticket")
+  failureReason String?         @map("failure_reason")
+
+  entryPrice Decimal? @map("entry_price") @db.Decimal(10, 5)
+  executedAt DateTime @default(now()) @map("executed_at") @db.Timestamptz(6)
+
+  @@index([signalId])
+  @@index([userId])
+  @@map("copier_executions")
+}
+
+// =================================================================
+// 13. BOT CONFIGURATION
+// =================================================================
+
+model MerchantBotConfig {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  merchantId String          @unique @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  welcomeMessage String @default("Welcome to our service! Please choose an option below.") @map("welcome_message")
+  mainMenuText   String @default("Main Menu") @map("main_menu_text")
+
+  enableMentorship  Boolean @default(false) @map("enable_mentorship")
+  enableSignals     Boolean @default(true) @map("enable_signals")
+  enableAffiliate   Boolean @default(false) @map("enable_affiliate")
+  enablePropFirm    Boolean @default(false) @map("enable_prop_firm")
+  enableGift        Boolean @default(true) @map("enable_gift")
+  enableMarketplace Boolean @default(false) @map("enable_marketplace")
+
+  collectEmails Boolean @default(false) @map("collect_emails")
+  collectPhones Boolean @default(false) @map("collect_phones")
+
+  publicChannelId BigInt? @map("public_channel_id")
+
+  customLinks Json? @default("[]") @map("custom_links")
+
+  supportUrl String? @map("support_url")
+  websiteUrl String? @map("website_url")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("merchant_bot_configs")
+}
+
+// =================================================================
+// 14. LEGACY & UTILITIES
+// =================================================================
+
+model UserMenuState {
+  id             Int      @id @default(autoincrement()) @map("id")
+  userId         String   @unique @map("user_id") @db.Uuid
+  stack          String[] @default([]) @map("stack")
+  previousMsgIds Json     @default("{}") @map("previous_msg_ids")
+  inviteLinkId   Int?     @map("invite_link_id")
+  faqIndex       Int      @default(0) @map("faq_index")
+  menu           String   @default("MAIN") @map("menu")
+  data           Json?    @map("data")
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_menu_states")
+}
+
+model Screenshot {
+  id     Int    @id @default(autoincrement()) @map("id")
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  merchantId String          @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  adminNotificationMsgId Int?    @map("admin_notification_msg_id")
+  messageId              Int     @map("message_id")
+  channelMessageId       Int?    @map("channel_message_id")
+  paymentMessageId       Int?    @map("payment_message_id")
+  isTelegramFileArchived Boolean @default(false) @map("is_telegram_file_archived")
+
+  photoId         String   @map("photo_id")
+  rejectionReason String?  @map("rejection_reason")
+  packagePrice    Decimal? @map("package_price") @db.Decimal(10, 2)
+  serviceId       String?  @map("service_id") @db.Uuid
+  service         Service? @relation(fields: [serviceId], references: [id])
+
+  packageType   String? @map("package_type")
+  paymentOption String? @map("payment_option")
+  paymentType   String? @map("payment_type")
+  serviceOption String? @map("service_option")
+  username      String? @map("username")
+
+  status PaymentStatus @default(PENDING) @map("status")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([merchantId])
+  @@index([userId, status])
+  @@map("screenshots")
+}
+
+model Settings {
+  id      Int    @id @default(autoincrement()) @map("id")
+  adminId BigInt @unique @map("admin_id")
+
+  language    String  @default("en") @map("language")
+  notifyPrefs Boolean @default(false) @map("notify_prefs")
+  nairaPrice  Int     @default(1700) @map("naira_price")
+
+  vipPrice         Json  @map("vip_price")
+  vipDiscountPrice Json  @map("vip_discount_price")
+  servicePrices    Json? @default("{}") @map("service_prices")
+
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("settings")
+}
+
+model FAQItem {
+  id         String          @id @default(uuid()) @map("id") @db.Uuid
+  merchantId String          @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  question String @map("question")
+  answer   String @map("answer")
+
+  orderIndex Int     @default(0) @map("order_index")
+  isActive   Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([merchantId])
+  @@map("faq_items")
+}
+
+// =================================================================
+// 15. INFRASTRUCTURE RELIABILITY
+// =================================================================
+
+model WebhookEvent {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  provider   String @map("provider")
+  externalId String @unique @map("external_id")
+  eventType  String @map("event_type")
+
+  payload Json @map("payload")
+
+  status   String  @default("PENDING") @map("status")
+  retries  Int     @default(0) @map("retries")
+  errorLog String? @map("error_log")
+
+  processedAt DateTime? @map("processed_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([provider, externalId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("webhook_events")
+}
+
+model IdempotencyRecord {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  key String @unique @map("key")
+
+  userId String? @map("user_id")
+  action String  @map("action")
+
+  status String @default("STARTED") @map("status")
+
+  response Json? @map("response")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+
+  @@index([key])
+  @@index([expiresAt])
+  @@map("idempotency_records")
+}
+
+model Feedback {
+  id String @id @default(uuid()) @db.Uuid
+
+  merchantId String  @map("merchant_id") @db.Uuid
+  userId     String? @map("user_id") @db.Uuid
+
+  type     FeedbackType
+  category String
+
+  paymentId      String? @map("payment_id") @db.Uuid
+  subscriptionId String? @map("subscription_id") @db.Uuid
+  ticketId       String? @map("ticket_id") @db.Uuid
+
+  pollId    String?            @unique @map("poll_id")
+  messageId String?            @map("message_id")
+  question  String
+  answer    String?
+  sentiment FeedbackSentiment?
+
+  isAlertSent Boolean  @default(false) @map("is_alert_sent")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  merchant MerchantProfile @relation(fields: [merchantId], references: [id])
+  user     User?           @relation(fields: [userId], references: [id])
+
+  payment      Payment?      @relation(fields: [paymentId], references: [id])
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+  ticket       Ticket?       @relation(fields: [ticketId], references: [id])
+
+  @@index([merchantId, category])
+  @@index([userId])
+  @@map("feedbacks")
+}
+
+model SubscriptionInvite {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  subscriptionId String       @map("subscription_id") @db.Uuid
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  telegramInviteLink String @unique @map("telegram_invite_link")
+  channelId          BigInt @map("channel_id")
+
+  isRevoked  Boolean @default(false) @map("is_revoked")
+  usageCount Int     @default(0) @map("usage_count")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([subscriptionId])
+  @@map("subscription_invites")
+}

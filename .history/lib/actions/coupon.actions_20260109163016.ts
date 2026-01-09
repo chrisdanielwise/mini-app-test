@@ -1,0 +1,118 @@
+"use server";
+
+import prisma from "@/lib/db";
+import { revalidatePath } from "next/cache";
+import { requireMerchantSession } from "@/lib/auth/merchant-auth";
+import { isUUID } from "@/lib/utils/validators";
+
+/**
+ * 🛰️ SYSTEM ACTION: DEPLOY PROMOTION
+ * Registers a new discount node with specific service or global targeting.
+ */
+export async function createCouponAction(prevState: any, formData: FormData) {
+  // 🔐 1. IDENTITY HANDSHAKE
+  const session = await requireMerchantSession();
+  const merchantId = formData.get("merchantId") as string;
+
+  // Security Verification: Ensures the session matches the requested node identity.
+  if (!isUUID(merchantId) || merchantId !== session.merchant.id) {
+    return { error: "Security Alert: Unauthorized or invalid node identity." };
+  }
+
+  // --- DATA EXTRACTION & NORMALIZATION ---
+  const serviceId = formData.get("serviceId") as string;
+  const code = (formData.get("code") as string)?.trim().toUpperCase();
+  const discountPercent = parseInt(formData.get("discountPercent") as string);
+  const maxUses = formData.get("maxUses")
+    ? parseInt(formData.get("maxUses") as string)
+    : null;
+
+  // Input Validation
+  if (!code || isNaN(discountPercent)) {
+    return {
+      error: "Validation Protocol: Missing required identity or value nodes.",
+    };
+  }
+
+  try {
+    // 🛡️ 2. ATOMIC UNIQUENESS CHECK
+    // Logic: Prevents active code collisions within a single merchant cluster.
+    const existing = await prisma.coupon.findFirst({
+      where: {
+        code,
+        merchantId,
+        isActive: true,
+      },
+    });
+
+    if (existing) {
+      return {
+        error:
+          "Configuration Collision: This code is already active in your cluster.",
+      };
+    }
+
+    // 🏁 3. DATABASE COMMIT
+    await prisma.coupon.create({
+      data: {
+        merchantId,
+        // Protocol: 'global' targets all services; otherwise links to a specific UUID.
+        serviceId: serviceId === "global" || !serviceId ? null : serviceId,
+        code,
+        discountPercent,
+        maxUses,
+        isActive: true,
+      },
+    });
+
+    // 🔄 4. CACHE REVALIDATION
+    revalidatePath("/dashboard/coupons");
+    revalidatePath("/dashboard");
+
+    return { success: true };
+  } catch (error: any) {
+    // Neon Resiliency: Log failure for serverless cold-start debugging.
+    console.error("❌ Coupon Deployment Failed:", error);
+    return {
+      error: "Critical Deployment Failure. Verify database connectivity.",
+    };
+  }
+}
+
+/**
+ * 🔒 PROTOCOL: REVOKE PROMOTION
+ * Securely terminates a coupon node after verifying merchant ownership.
+ */
+export async function revokeCouponAction(couponId: string) {
+  // 🔐 1. IDENTITY HANDSHAKE
+  const session = await requireMerchantSession();
+
+  try {
+    // 🛡️ 2. SECURITY GUARD
+    // Logic: Verify the current session has authority over this specific coupon node.
+    const coupon = await prisma.coupon.findFirst({
+      where: {
+        id: couponId,
+        merchantId: session.merchant.id,
+      },
+    });
+
+    if (!coupon) {
+      return { error: "Security Alert: Unauthorized revocation attempt." };
+    }
+
+    // 🏁 3. ATOMIC DELETION
+    await prisma.coupon.delete({
+      where: { id: couponId },
+    });
+
+    // 🔄 4. INTERFACE SYNC
+    revalidatePath("/dashboard/coupons");
+    revalidatePath("/dashboard");
+
+    return { success: true };
+  } catch (error) {
+    console.error("❌ Coupon Revocation Failed:", error);
+    return { error: "Node Error: Could not terminate promotion protocol." };
+  }
+}
