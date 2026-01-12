@@ -133,6 +133,8 @@ exports.Prisma.UserScalarFieldEnum = {
   language: 'language',
   role: 'role',
   deletedAt: 'deletedAt',
+  lastLoginToken: 'lastLoginToken',
+  tokenExpires: 'tokenExpires',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -160,8 +162,6 @@ exports.Prisma.MerchantProfileScalarFieldEnum = {
   availableBalance: 'availableBalance',
   pendingEscrow: 'pendingEscrow',
   deletedAt: 'deletedAt',
-  lastLoginToken: 'lastLoginToken',
-  tokenExpires: 'tokenExpires',
   approvalChannelId: 'approvalChannelId',
   contactSupportUrl: 'contactSupportUrl',
   googleDriveLink: 'googleDriveLink',
@@ -551,7 +551,7 @@ exports.Prisma.MerchantDailyMetricScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
-exports.Prisma.AuditLogScalarFieldEnum = {
+exports.Prisma.ActivityLogScalarFieldEnum = {
   id: 'id',
   merchantId: 'merchantId',
   actorId: 'actorId',
@@ -1005,7 +1005,7 @@ exports.Prisma.ModelName = {
   AdCampaign: 'AdCampaign',
   MerchantAnalytics: 'MerchantAnalytics',
   MerchantDailyMetric: 'MerchantDailyMetric',
-  AuditLog: 'AuditLog',
+  ActivityLog: 'ActivityLog',
   DashboardNotification: 'DashboardNotification',
   VerificationDocument: 'VerificationDocument',
   Ticket: 'Ticket',

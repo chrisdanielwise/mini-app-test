@@ -3,10 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "next build",
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
+    "build": "next build --turbopack",
     "lint": "eslint .",
     "start": "next start"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -64,6 +67,7 @@
     "swr": "2.3.8",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
+    "use-debounce": "^10.1.0",
     "uuid": "13.0.0",
     "vaul": "^1.1.2",
     "zod": "3.25.76"
@@ -74,6 +78,7 @@
     "@types/pg": "^8.16.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv-cli": "^11.0.0",
     "postcss": "^8.5",
     "prisma": "latest",
     "tailwindcss": "^4.1.9",

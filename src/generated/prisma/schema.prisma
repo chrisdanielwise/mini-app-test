@@ -299,13 +299,16 @@ model User {
 
   // Operations
   notifications    DashboardNotification[]
-  actionsPerformed AuditLog[]              @relation("AuditActor")
+  actionsPerformed ActivityLog[]           @relation("ActivityActor")
 
   // Legacy
   screenshots     Screenshot[]
   receivedCoupons Coupon[]       @relation("Recipient")
   createdCoupons  Coupon[]       @relation("Creator")
   menuState       UserMenuState?
+  // 🚀 ADD THESE TO THE USER MODEL
+  lastLoginToken  String?        @map("last_login_token")
+  tokenExpires    DateTime?      @map("token_expires") @db.Timestamptz(6)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -386,15 +389,12 @@ model MerchantProfile {
   ledgerEntries Ledger[]
   refunds       Refund[]
   payouts       PayoutRequest[]
-  auditLogs     AuditLog[]
+  activityLogs  ActivityLog[]
   adCampaigns   AdCampaign[]
   documents     VerificationDocument[]
 
   affiliateLinks AffiliateLink[]
   challenges     AffiliateChallenge[]
-
-  lastLoginToken String?   @map("last_login_token")
-  tokenExpires   DateTime? @map("token_expires") @db.Timestamptz(6)
 
   // Configuration
   approvalChannelId BigInt? @map("approval_channel_id")
@@ -422,6 +422,7 @@ model MerchantProfile {
 
   @@index([companyName])
   @@index([provisioningStatus, updatedAt])
+  @@index([provisioningStatus])
   @@index([botId])
   @@map("merchants")
 }
@@ -826,6 +827,8 @@ model Subscription {
   @@index([userId])
   @@index([merchantId, status])
   @@index([status, expiresAt])
+  @@index([status, createdAt(sort: Asc)])
+  @@index([createdAt])
   @@map("subscriptions")
 }
 
@@ -883,7 +886,7 @@ model Payment {
 
   @@index([userId, createdAt])
   @@index([subscriptionId])
-  @@index([merchantId, status])
+  @@index([merchantId, status, createdAt])
   @@map("payments")
 }
 
@@ -1167,14 +1170,18 @@ model MerchantDailyMetric {
   @@map("merchant_daily_metrics")
 }
 
-model AuditLog {
+// =================================================================
+// 10. ANALYTICS & OPERATIONS (Updated for Activity Feed)
+// =================================================================
+
+model ActivityLog {
   id String @id @default(uuid()) @map("id") @db.Uuid
 
-  merchantId String          @map("merchant_id") @db.Uuid
-  merchant   MerchantProfile @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  merchantId String?          @map("merchant_id") @db.Uuid
+  merchant   MerchantProfile? @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 
   actorId String @map("actor_id") @db.Uuid
-  actor   User   @relation("AuditActor", fields: [actorId], references: [id])
+  actor   User   @relation("ActivityActor", fields: [actorId], references: [id])
 
   action    String  @map("action")
   resource  String  @map("resource")
@@ -1185,8 +1192,8 @@ model AuditLog {
 
   @@index([merchantId])
   @@index([actorId])
-  @@index([createdAt])
-  @@map("audit_logs")
+  @@index([createdAt(sort: Desc)]) // 🚀 Added for high-speed Dashboard Activity Feeds
+  @@map("activity_logs") // Maps to the underlying table name
 }
 
 model DashboardNotification {
