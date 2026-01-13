@@ -135,8 +135,18 @@ exports.Prisma.UserScalarFieldEnum = {
   deletedAt: 'deletedAt',
   lastLoginToken: 'lastLoginToken',
   tokenExpires: 'tokenExpires',
+  lastLoginAt: 'lastLoginAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
+};
+
+exports.Prisma.MagicTokenScalarFieldEnum = {
+  id: 'id',
+  token: 'token',
+  userId: 'userId',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt',
+  used: 'used'
 };
 
 exports.Prisma.PlatformSubscriptionScalarFieldEnum = {
@@ -976,6 +986,7 @@ exports.FeedbackSentiment = exports.$Enums.FeedbackSentiment = {
 
 exports.Prisma.ModelName = {
   User: 'User',
+  MagicToken: 'MagicToken',
   PlatformSubscription: 'PlatformSubscription',
   MerchantProfile: 'MerchantProfile',
   PlatformPlan: 'PlatformPlan',

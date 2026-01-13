@@ -49,6 +49,7 @@
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
     "date-fns": "4.1.0",
+    "dotenv": "^17.2.3",
     "embla-carousel-react": "8.5.1",
     "input-otp": "1.4.1",
     "jose": "6.1.3",
@@ -82,6 +83,7 @@
     "postcss": "^8.5",
     "prisma": "latest",
     "tailwindcss": "^4.1.9",
+    "tsx": "^4.21.0",
     "tw-animate-css": "1.3.3",
     "typescript": "^5"
   }

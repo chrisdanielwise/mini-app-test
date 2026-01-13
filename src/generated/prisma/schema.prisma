@@ -309,14 +309,32 @@ model User {
   // 🚀 ADD THESE TO THE USER MODEL
   lastLoginToken  String?        @map("last_login_token")
   tokenExpires    DateTime?      @map("token_expires") @db.Timestamptz(6)
+  lastLoginAt     DateTime?      @map("last_login_at") @db.Timestamptz(6)
 
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  magicTokens MagicToken[]
 
   @@index([telegramId])
   @@index([email])
   @@index([role])
   @@map("users")
+}
+
+model MagicToken {
+  id    String @id @default(uuid()) @map("id")
+  token String @unique @map("token")
+
+  // 🚀 FIX: Add '@db.Uuid' to match the User.id type
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  used      Boolean  @default(false) @map("used")
+
+  @@index([token])
+  @@map("magic_tokens")
 }
 
 // Platform Base Subscription (SaaS Fee)
