@@ -251,14 +251,15 @@ model User {
   id String @id @default(uuid()) @map("id") @db.Uuid
 
   // Identity
-  telegramId  BigInt  @unique @map("user_id")
-  fullName    String? @map("full_name")
-  username    String? @map("username")
-  phoneNumber String? @map("phone_number")
-  displayName String? @map("display_name")
-  email       String? @unique @map("email")
-  firstName   String? @map("first_name")
-  lastName    String? @map("last_name")
+  telegramId    BigInt  @unique @map("user_id")
+  fullName      String? @map("full_name")
+  username      String? @map("username")
+  phoneNumber   String? @map("phone_number")
+  displayName   String? @map("display_name")
+  email         String? @unique @map("email")
+  firstName     String? @map("first_name")
+  lastName      String? @map("last_name")
+  securityStamp String? @default(uuid()) @map("security_stamp")
 
   language LanguageCode @default(EN) @map("language")
   role     UserRole     @default(USER) @map("role")
@@ -489,6 +490,7 @@ model MerchantTeam {
   @@unique([merchantId, userId])
   @@index([merchantId])
   @@index([userId])
+  @@index([userId, merchantId])
   @@map("merchant_teams")
 }
 
@@ -843,10 +845,10 @@ model Subscription {
 
   @@unique([userId, serviceId], name: "userId_serviceId")
   @@index([userId])
-  @@index([merchantId, status])
   @@index([status, expiresAt])
-  @@index([status, createdAt(sort: Asc)])
   @@index([createdAt])
+  @@index([status, createdAt(sort: Asc)])
+  @@index([merchantId, status], name: "idx_merchant_sub")
   @@map("subscriptions")
 }
 

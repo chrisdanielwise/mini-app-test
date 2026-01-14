@@ -1,0 +1,133 @@
+import { cookies, headers } from "next/headers";
+import prisma from "@/lib/db";
+import { redirect } from "next/navigation";
+import { cache } from "react"; 
+import { AuthService } from "@/lib/services/auth.service"; // 🚀 Unified Auth
+import { JWT_CONFIG } from "./config";
+
+/**
+ * 🛰️ UNIVERSAL SESSION RESOLVER (Institutional v13.2.10)
+ * Logic: Dual-Ingress (Cookie + Bearer) with Server-Side Memoization.
+ * Performance: Uses React 'cache' to ensure getSession() only runs once per request.
+ */
+export const getSession = cache(async (): Promise<any | null> => {
+  try {
+    const cookieStore = await cookies();
+    const headerList = await headers();
+
+    // 🛡️ SHIELD 0: DUAL-INGRESS EXTRACTION
+    let token = cookieStore.get(JWT_CONFIG.cookieName)?.value;
+
+    if (!token) {
+      const authHeader = headerList.get("authorization");
+      if (authHeader?.startsWith("Bearer ")) {
+        token = authHeader.substring(7);
+        console.log("🛰️ [Session_Audit] Cookie hidden. Recovered via Bearer.");
+      }
+    }
+
+    if (!token) return null;
+
+    // 🛡️ SHIELD 1: CRYPTOGRAPHIC VERIFICATION
+    // Uses the centralized AuthService for signature & expiry validation
+    const payload = await AuthService.verifySession(token);
+    
+    if (!payload || !payload.sub) return null;
+
+    const userId = payload.sub as string;
+
+    // 🛡️ SHIELD 2: RELATIONAL CROSS-CHECK
+    // 🚀 OPTIMIZATION: Stripping 'turtle' slow queries by selecting only vital fields.
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        telegramId: true, 
+        firstName: true, // 🔄 Aligned with v13 schema
+        username: true,
+        role: true,
+        deletedAt: true,
+        merchantProfile: { 
+          select: { id: true, companyName: true, botUsername: true, planStatus: true } 
+        },
+        teamMemberships: { take: 1, select: { merchantId: true } }
+      }
+    });
+
+    // 🚫 SECURITY KILLSWITCH
+    if (!user || user.deletedAt) return null;
+
+    // 🛡️ SHIELD 3: IDENTITY CONVERGENCE
+    const normalizedRole = user.role.toLowerCase();
+    const isPlatformStaff = JWT_CONFIG.staffRoles.includes(normalizedRole) || !!payload.isStaff;
+
+    const currentMerchantId = 
+      user.merchantProfile?.id || 
+      user.teamMemberships[0]?.merchantId || 
+      (payload.merchantId as string | null);
+
+    return {
+      user: {
+        id: user.id,
+        role: normalizedRole,
+        firstName: user.firstName,
+        username: user.username,
+        // 🛡️ BIGINT RESILIENCE: Explicitly cast to string for RSC serialization
+        telegramId: user.telegramId?.toString() || null,
+      },
+      isStaff: isPlatformStaff,
+      merchantId: currentMerchantId,
+      config: {
+        companyName: user.merchantProfile?.companyName || (isPlatformStaff ? "Zipha HQ" : "Standard Node"),
+        botUsername: user.merchantProfile?.botUsername || null,
+        planStatus: user.merchantProfile?.planStatus || "FREE",
+        isOwner: !!user.merchantProfile,
+        isSetup: !!user.merchantProfile?.botUsername,
+      }
+    };
+
+  } catch (error: any) {
+    console.error("🔥 [Session_Critical] Resolution Failure:", error.message);
+    return null;
+  }
+});
+
+/**
+ * 🛡️ THE GATEKEEPERS (Server Component Guards)
+ * Logic: Hardened to prevent 307 Redirect Loops during the "No Session" state.
+ */
+export async function requireAuth() {
+  const session = await getSession();
+  
+  if (!session) {
+    const headerList = await headers();
+    const xPath = headerList.get("x-invoke-path") || "";
+    const referer = headerList.get("referer") || "";
+    
+    // 🛡️ THE CIRCUIT BREAKER: If we are heading to login, don't redirect again
+    if (xPath.includes("/dashboard/login") || referer.includes("/dashboard/login")) {
+      return null;
+    }
+    
+    return redirect("/dashboard/login?reason=auth_required");
+  }
+  
+  return session;
+}
+
+export async function requireStaff() {
+  const session = await getSession();
+  
+  // 1. If no session exists, we handle it silently to let the Layout's Loop Breaker work
+  if (!session) {
+    return null; 
+  }
+  
+  // 2. If a session exists but the role is wrong, we expel to login or unauthorized
+  if (!session.isStaff) {
+    console.warn(`⛔ [Guard]: User ${session.user.id} attempted staff access with role: ${session.user.role}`);
+    return redirect("/dashboard/login?reason=access_denied");
+  }
+  
+  return session;
+}
