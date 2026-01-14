@@ -319,6 +319,7 @@ model User {
   @@index([telegramId])
   @@index([email])
   @@index([role])
+  @@index([id, securityStamp])
   @@map("users")
 }
 
@@ -354,6 +355,26 @@ model PlatformSubscription {
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   @@map("platform_subscriptions")
+}
+
+// 🛰️ GLOBAL CONFIGURATION NODE
+model SystemConfig {
+  id String @id @default(uuid()) @map("id") @db.Uuid
+
+  // --- MAINTENANCE (503) ---
+  maintenanceMode    Boolean @default(false) @map("maintenance_mode")
+  maintenanceMessage String? @default("Node offline for scheduled maintenance.") @map("maintenance_message")
+
+  // --- BROADCAST (BANNER) ---
+  broadcastActive  Boolean @default(false) @map("broadcast_active")
+  broadcastMessage String? @map("broadcast_message")
+  broadcastLevel   String  @default("INFO") @map("broadcast_level") // INFO | WARN | CRITICAL
+
+  // --- AUDIT ---
+  updatedBy String?  @map("updated_by")
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("system_configs")
 }
 
 // =================================================================
@@ -631,6 +652,7 @@ model Product {
   @@index([merchantId, categoryId])
   @@index([merchantId, isActive])
   @@index([popularity])
+  @@index([merchantId, categoryId, isActive])
   @@map("products")
 }
 
@@ -983,7 +1005,7 @@ model Ledger {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([merchantId])
-  @@index([merchantId, createdAt])
+  @@index([merchantId, createdAt(sort: Desc)])
   @@map("ledgers")
 }
 
@@ -1283,6 +1305,7 @@ model Ticket {
   @@index([merchantId])
   @@index([status])
   @@index([assignedAgentId])
+  @@index([merchantId, status])
   @@map("tickets")
 }
 

@@ -160,6 +160,17 @@ exports.Prisma.PlatformSubscriptionScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.SystemConfigScalarFieldEnum = {
+  id: 'id',
+  maintenanceMode: 'maintenanceMode',
+  maintenanceMessage: 'maintenanceMessage',
+  broadcastActive: 'broadcastActive',
+  broadcastMessage: 'broadcastMessage',
+  broadcastLevel: 'broadcastLevel',
+  updatedBy: 'updatedBy',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.MerchantProfileScalarFieldEnum = {
   id: 'id',
   adminUserId: 'adminUserId',
@@ -989,6 +1000,7 @@ exports.Prisma.ModelName = {
   User: 'User',
   MagicToken: 'MagicToken',
   PlatformSubscription: 'PlatformSubscription',
+  SystemConfig: 'SystemConfig',
   MerchantProfile: 'MerchantProfile',
   PlatformPlan: 'PlatformPlan',
   MerchantTeam: 'MerchantTeam',
