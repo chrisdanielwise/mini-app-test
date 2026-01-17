@@ -1,0 +1,186 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/* 🛰️ CUSTOM VARIANT: Optimized for Telegram Native Dark Mode */
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* --- 🌊 2026 FLUID SCALING ENGINE --- */
+  --vh: 1dvh;
+  --vw: 1dvw;
+  --fluid-base: clamp(0.875rem, 0.5vw + 0.75rem, 1.25rem);
+  --fluid-h1: clamp(1.75rem, 5vw, 3.5rem);
+  --fluid-h2: clamp(1.5rem, 4vw, 2.75rem);
+  --fluid-gap: clamp(1rem, 3vw, 2.5rem);
+
+  /* --- TELEGRAM VIEWPORT SYNC (Dynamic Recalibration) --- */
+  /* 🛡️ FIX: Stitched Viewport Standard */
+  --tg-viewport-height: 100svh; 
+ --tg-safe-top: clamp(px, env(safe-area-inset-top), 100px);
+  --tg-safe-bottom: clamp(15px, env(safe-area-inset-bottom), 100px);
+  --tg-safe-area-top: 60px;
+
+  /* --- LIGHT THEME (Zipha Institutional + Telegram Fallbacks) --- */
+  --background: var(--tg-theme-bg-color, oklch(1 0 0));
+  --foreground: var(--tg-theme-text-color, oklch(0.145 0 0));
+
+  --glass-bg: oklch(1 0 0 / 0.4);
+  --glass-border: oklch(0.145 0 0 / 0.08);
+
+  --card: var(--tg-theme-secondary-bg-color, oklch(0.98 0 0));
+  --card-foreground: var(--tg-theme-text-color, oklch(0.145 0 0));
+
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+
+  /* 🚀 ROLE FLAVORS */
+  --emerald: oklch(0.627 0.265 149.213);
+  --amber: oklch(0.769 0.188 70.08);
+  --success: var(--emerald);
+
+  --primary: var(--tg-theme-button-color, oklch(0.205 0 0));
+  --primary-foreground: var(--tg-theme-button-text-color, oklch(0.985 0 0));
+
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+
+  --muted: var(--tg-theme-hint-color, oklch(0.97 0 0));
+  --muted-foreground: oklch(0.556 0 0);
+
+  --accent: var(--tg-theme-secondary-bg-color, oklch(0.97 0 0));
+  --accent-foreground: oklch(0.205 0 0);
+
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+
+  --border: oklch(0.922 0 0 / 0.5);
+  --input: oklch(0.922 0 0 / 0.5);
+  --ring: var(--tg-theme-button-color, oklch(0.708 0 0));
+
+  --radius: 1.5rem;
+  --ease-institutional: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 🛡️ STAFF PROTOCOL */
+.theme-staff {
+  --primary: var(--amber);
+  --primary-foreground: oklch(0 0 0); 
+  --ring: var(--amber);
+}
+
+/* 🛡️ MERCHANT PROTOCOL */
+.theme-merchant {
+  --primary: var(--emerald);
+  --primary-foreground: oklch(1 0 0);
+  --ring: var(--emerald);
+}
+
+.dark {
+  --background: var(--tg-theme-bg-color, oklch(0.12 0 0));
+  --foreground: var(--tg-theme-text-color, oklch(0.985 0 0));
+  --glass-bg: oklch(0.16 0 0 / 0.5);
+  --glass-border: oklch(1 0 0 / 0.06);
+  --card: var(--tg-theme-secondary-bg-color, oklch(0.16 0 0));
+  --card-foreground: var(--tg-theme-text-color, oklch(0.985 0 0));
+  --popover: oklch(0.14 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.22 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: var(--tg-theme-hint-color, oklch(0.18 0 0));
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.22 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: oklch(0.22 0 0 / 0.6);
+  --input: oklch(0.22 0 0 / 0.6);
+  --ring: oklch(0.439 0 0);
+}
+
+@theme inline {
+  --font-sans: 'Geist', 'Geist Fallback', sans-serif;
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback', monospace;
+
+  --radius-xs: calc(var(--radius) * 0.4);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) * 1.5);
+  --radius-xl: calc(var(--radius) * 2);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-success: var(--success);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+
+  --shadow-apex: 0 30px 60px -12px oklch(0 0 0 / 0.5);
+  --shadow-inner-glow: inset 0 1px 1px 0 oklch(1 0 0 / 0.1);
+}
+
+@layer base {
+  /* 🏁 THE ABSOLUTE HARDWARE LOCK */
+  html, body {
+  position: fixed !important;
+  overflow: hidden !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0;
+  padding: 0;
+  background: black;
+  overscroll-behavior: none;
+}
+
+  * {
+    border-color: var(--border);
+    outline-color: oklch(from var(--ring) l c h / 0.5);
+    transition-property: color, background-color, border-color, opacity, transform, filter;
+    transition-duration: 500ms;
+    transition-timing-function: var(--ease-institutional);
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-primary/20;
+    background: var(--background);
+    background-attachment: fixed;
+    font-size: var(--fluid-base);
+  }
+
+  /* 🚀 CONTENT SCROLL ISOLATION */
+  #main-scroll-root {
+    touch-action: pan-y !important;
+    overscroll-behavior-y: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* 🚀 FLUID TYPOGRAPHY MAPPING */
+  h1 { font-size: var(--fluid-h1); font-weight: 900; letter-spacing: -0.05em; line-height: 0.9; }
+  h2 { font-size: var(--fluid-h2); font-weight: 800; letter-spacing: -0.03em; }
+
+  /* 🧪 HYPER-GLASS COMPONENTS */
+  .glass-module {
+    @apply bg-[var(--glass-bg)] backdrop-blur-3xl border border-[var(--glass-border)] shadow-apex;
+    background-image: radial-gradient(circle at top left, oklch(1 0 0 / 0.05), transparent);
+    will-change: backdrop-filter;
+  }
+
+  ::-webkit-scrollbar { width: 0px; } /* Hide technical scroll on HUD */
+}
+
+@layer utilities {
+  .fluid-gap { gap: var(--fluid-gap); }
+  /* 🏁 HARD DISPLACEMENT UTILITY
+     Use 'height' instead of 'padding' for the top buffer 
+     to physically block the header. */
+  .safe-top-buffer { 
+    height: var(--tg-safe-top) !important; 
+    min-height: 27px !important;
+  }
+  .safe-p-bottom { padding-bottom: var(--tg-safe-bottom); }
+  
+  /* 🏁 Adaptive Height Fix */
+  .h-viewport { height: var(--tg-viewport-height); }
+}

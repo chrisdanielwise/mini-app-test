@@ -1,0 +1,96 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* --- TELEGRAM DYNAMIC VIEWPORT --- */
+  --tg-viewport-height: 100dvh;
+  --tg-safe-top: env(safe-area-inset-top, 0px);
+  --tg-safe-bottom: env(safe-area-inset-bottom, 24px);
+
+  /* --- INSTITUTIONAL OKLCH PALETTE --- */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.15 0 0);
+
+  /* Glass Baseline */
+  --glass-bg: oklch(1 0 0 / 0.4);
+  --glass-border: oklch(1 0 0 / 0.1);
+
+  /* Flavor Nodes */
+  --emerald: oklch(0.627 0.265 149.213); /* Core Primary */
+  --amber: oklch(0.769 0.188 70.08);    /* Staff Primary */
+  
+  --primary: oklch(0.2 0 0); /* Fallback */
+  --primary-foreground: oklch(0.98 0 0);
+
+  --muted-foreground: oklch(0.55 0 0);
+  --border: oklch(0.92 0 0 / 0.5);
+  --radius: 1.5rem; /* Upgraded from 1.25 for deeper squircle flow */
+
+  /* Kinetic Curves */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-institutional: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dark {
+  --background: oklch(0.1 0 0);
+  --foreground: oklch(0.98 0 0);
+  
+  --glass-bg: oklch(0.15 0 0 / 0.5);
+  --glass-border: oklch(1 0 0 / 0.05);
+  
+  --border: oklch(0.2 0 0);
+  --muted-foreground: oklch(0.6 0 0);
+}
+
+/* 🛡️ THEME FLAVORS: Hardened Handshake */
+.theme-staff { --primary: var(--amber); --primary-foreground: oklch(0.1 0 0); }
+.theme-merchant { --primary: var(--emerald); --primary-foreground: oklch(1 0 0); }
+
+@theme inline {
+  --font-sans: 'Geist', sans-serif;
+  --font-mono: 'Geist Mono', monospace;
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-glass: var(--glass-bg);
+  
+  /* 🌊 APEX SHADOWS: Institutional Depth */
+  --shadow-apex: 0 30px 60px -12px oklch(0 0 0 / 0.5);
+  --shadow-inner-glow: inset 0 1px 1px 0 oklch(1 0 0 / 0.1);
+  
+  /* 🚀 MOMENTUM TIMING */
+  --animate-ingress: ingress 0.7s var(--ease-institutional);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+    /* 🌊 FLUID MOTION: Global transition override for "Water" feel */
+    @apply transition-all duration-500 ease-[var(--ease-institutional)];
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-primary/20;
+    min-height: var(--tg-viewport-height);
+    overflow-x: hidden;
+    /* Prevent iOS rubber-banding on nested scrolls */
+    overscroll-behavior-y: none; 
+  }
+
+  /* 🧪 HYPER-GLASS UTILITY */
+  .glass-panel {
+    @apply bg-glass backdrop-blur-3xl border border-[var(--glass-border)] shadow-apex;
+    background-image: radial-gradient(
+      circle at top left,
+      oklch(1 0 0 / 0.05),
+      transparent
+    );
+  }
+}
+
+@keyframes ingress {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
