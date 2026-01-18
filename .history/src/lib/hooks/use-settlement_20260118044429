@@ -1,0 +1,53 @@
+"use client";
+
+import { create } from "zustand";
+import { useHaptics } from "./use-haptics";
+interface SettlementState {
+  isOpen: boolean;
+  balance: number;
+  actions: {
+    open: (balance?: number) => void;
+    close: () => void;
+  };
+}
+
+/**
+ * 🛰️ USE_SETTLEMENT_STORE
+ * Strategy: Global State Sync for Portal-Mounted Drawers.
+ */
+const useSettlementStore = create<SettlementState>((set) => ({
+  isOpen: false,
+  balance: 0,
+  actions: {
+    open: (balance = 0) => set({ isOpen: true, balance }),
+    close: () => set({ isOpen: false }),
+  },
+}));
+
+/**
+ * 🚀 USE_SETTLEMENT (Institutional v16.36.15)
+ * Mission: Provide a unified ingress point for fund disbursements.
+ * Handshake: Automatically triggers 'selectionChange' haptic on open.
+ */
+export function useSettlement() {
+  const { selectionChange, impact } = useHaptics();
+  const { isOpen, balance, actions } = useSettlementStore();
+
+  const triggerSettlement = (currentBalance: number) => {
+    // 🏎️ TACTICAL_HANDSHAKE: Physical feedback before the drawer slides
+    selectionChange(); 
+    actions.open(currentBalance);
+  };
+
+  const closeSettlement = () => {
+    impact("light");
+    actions.close();
+  };
+
+  return {
+    isOpen,
+    balance,
+    triggerSettlement,
+    closeSettlement,
+  };
+}

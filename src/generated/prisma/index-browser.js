@@ -133,10 +133,10 @@ exports.Prisma.UserScalarFieldEnum = {
   securityStamp: 'securityStamp',
   language: 'language',
   role: 'role',
-  deletedAt: 'deletedAt',
   lastLoginToken: 'lastLoginToken',
   tokenExpires: 'tokenExpires',
   lastLoginAt: 'lastLoginAt',
+  deletedAt: 'deletedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -612,6 +612,7 @@ exports.Prisma.TicketScalarFieldEnum = {
   userId: 'userId',
   merchantId: 'merchantId',
   assignedAgentId: 'assignedAgentId',
+  resolvedBy: 'resolvedBy',
   subject: 'subject',
   status: 'status',
   priority: 'priority',
@@ -955,6 +956,15 @@ exports.DocStatus = exports.$Enums.DocStatus = {
   PENDING: 'PENDING',
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED'
+};
+
+exports.TicketStatus = exports.$Enums.TicketStatus = {
+  OPEN: 'OPEN',
+  IN_PROGRESS: 'IN_PROGRESS',
+  PENDING_USER: 'PENDING_USER',
+  RESOLVED: 'RESOLVED',
+  CLOSED: 'CLOSED',
+  ARCHIVED: 'ARCHIVED'
 };
 
 exports.TicketPriority = exports.$Enums.TicketPriority = {

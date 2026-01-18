@@ -144,6 +144,17 @@ enum TicketCategory {
   @@map("ticket_category")
 }
 
+enum TicketStatus {
+  OPEN         @map("open") // Initial ingress state.
+  IN_PROGRESS  @map("in_progress") // Assigned to an agent.
+  PENDING_USER @map("pending_user") // Waiting for customer sync.
+  RESOLVED     @map("resolved") // Handled but not yet finalized.
+  CLOSED       @map("closed") // Final settlement/closure.
+  ARCHIVED     @map("archived") // Legacy node for compliance.
+
+  @@map("ticket_status")
+}
+
 enum SenderType {
   CUSTOMER @map("customer")
   AGENT    @map("agent")
@@ -250,7 +261,7 @@ enum DispatchType {
 model User {
   id String @id @default(uuid()) @map("id") @db.Uuid
 
-  // Identity
+  // --- IDENTITY & SECURITY ---
   telegramId    BigInt  @unique @map("user_id")
   fullName      String? @map("full_name")
   username      String? @map("username")
@@ -264,16 +275,20 @@ model User {
   language LanguageCode @default(EN) @map("language")
   role     UserRole     @default(USER) @map("role")
 
-  // Soft Delete
+  // --- AUTHENTICATION NODES ---
+  lastLoginToken String?      @map("last_login_token")
+  tokenExpires   DateTime?    @map("token_expires") @db.Timestamptz(6)
+  lastLoginAt    DateTime?    @map("last_login_at") @db.Timestamptz(6)
+  magicTokens    MagicToken[]
+
+  // --- SOFT DELETE ---
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   // --- RELATIONSHIPS ---
 
-  // Ownership
+  // Ownership & Logistics
   merchantProfile MerchantProfile? @relation("MerchantOwner")
   riderProfile    RiderProfile?
-
-  // Team Memberships
   teamMemberships MerchantTeam[]
 
   // Context & History
@@ -287,34 +302,34 @@ model User {
   payments             Payment[]
   couponRedemptions    CouponRedemption[]
 
-  // Marketplace Orders
+  // Marketplace & Orders
   orders Order[]
 
-  // Support & Affiliate
+  // Support & Roles (Merged & Cleaned)
+  // 
+  ticketsCreated  Ticket[] @relation("UserTickets")
+  ticketsAssigned Ticket[] @relation("AgentTickets")
+  resolvedTickets Ticket[] @relation("ResolvedTickets")
+
+  // Trading & Affiliates
   affiliateLinks       AffiliateLink[]
   affiliateConversions AffiliateConversion[]
-  ticketsCreated       Ticket[]              @relation("UserTickets")
-  ticketsAssigned      Ticket[]              @relation("AgentTickets")
   copierSettings       CopierSetting?
   copierExecutions     CopierExecution[]
 
-  // Operations
+  // Operations & Audit
   notifications    DashboardNotification[]
   actionsPerformed ActivityLog[]           @relation("ActivityActor")
 
-  // Legacy
+  // Legacy & Coupons
   screenshots     Screenshot[]
   receivedCoupons Coupon[]       @relation("Recipient")
   createdCoupons  Coupon[]       @relation("Creator")
   menuState       UserMenuState?
-  // 🚀 ADD THESE TO THE USER MODEL
-  lastLoginToken  String?        @map("last_login_token")
-  tokenExpires    DateTime?      @map("token_expires") @db.Timestamptz(6)
-  lastLoginAt     DateTime?      @map("last_login_at") @db.Timestamptz(6)
 
-  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
-  magicTokens MagicToken[]
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([telegramId])
   @@index([email])
@@ -829,8 +844,9 @@ model ServiceTier {
   subscriptions Subscription[]
   coupons       Coupon[]
 
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  payments  Payment[]
 
   @@index([serviceId])
   @@map("service_tiers")
@@ -878,6 +894,11 @@ model Subscription {
 // 7. PAYMENTS & LEDGER
 // =================================================================
 
+/**
+ * 🏛️ MODEL: Payment
+ * Strategy: Hardened Financial Telemetry & Asset Attribution.
+ * Standard: Institutional Apex v2026.1.20
+ */
 model Payment {
   id     String @id @default(uuid()) @map("id") @db.Uuid
   userId String @map("user_id") @db.Uuid
@@ -886,46 +907,51 @@ model Payment {
   subscriptionId String?       @map("subscription_id") @db.Uuid
   subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
 
-  // FIXED: Removed hardcoded default UUID - merchantId is now required
+  // Multi-Tenancy Isolation
   merchantId String          @map("merchant_id") @db.Uuid
   merchant   MerchantProfile @relation(fields: [merchantId], references: [id])
 
   serviceId String  @map("service_id") @db.Uuid
   service   Service @relation(fields: [serviceId], references: [id])
 
-  serviceTierId    String? @map("service_tier_id") @db.Uuid
-  tierNameSnapshot String? @map("tier_name_snapshot")
+  // --- 🛰️ RELATION_FIX: ServiceTier Ingress ---
+  serviceTierId    String?      @map("service_tier_id") @db.Uuid
+  serviceTier      ServiceTier? @relation(fields: [serviceTierId], references: [id])
+  tierNameSnapshot String?      @map("tier_name_snapshot")
 
-  // Financial Snapshot
+  // --- FINANCIAL SNAPSHOT ---
   amount          Decimal  @map("amount") @db.Decimal(20, 8)
   originalPrice   Decimal? @map("original_price") @db.Decimal(20, 8)
   discountApplied Decimal? @map("discount_applied") @db.Decimal(20, 8)
   currency        String   @map("currency")
 
-  // Coupon Attribution
+  // --- COUPON ATTRIBUTION ---
   couponId   String? @map("coupon_id") @db.Uuid
   couponCode String? @map("coupon_code")
 
-  // Exchange Rate Audit
+  // --- EXCHANGE RATE AUDIT ---
   exchangeRate Decimal? @map("exchange_rate") @db.Decimal(20, 8)
   originalUSD  Decimal? @map("original_usd") @db.Decimal(20, 8)
 
   status        PaymentStatus @default(PENDING) @map("status")
   paymentMethod String?       @map("payment_method")
 
-  // Gateway Info
+  // --- GATEWAY TELEMETRY ---
   gatewayProvider       String  @map("gateway_provider")
   gatewayReference      String  @unique @map("gateway_reference")
   providerTransactionId String? @unique @map("provider_transaction_id")
   providerResponse      Json?   @map("provider_response")
 
+  // --- AUDIT TRAIL ---
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  // --- RELATIONS ---
   feedbacks           Feedback[]
   ledgerEntry         Ledger?
   refunds             Refund[]
   affiliateConversion AffiliateConversion?
 
+  // --- INDEXING: High-Density Search ---
   @@index([userId, createdAt])
   @@index([subscriptionId])
   @@index([merchantId, status, createdAt])
@@ -1282,25 +1308,49 @@ model VerificationDocument {
 // 11. SUPPORT & TICKETS
 // =================================================================
 
+/**
+ * 🏛️ MODEL: Ticket
+ * Strategy: Multi-Tenant Oversight & Audit Handshake.
+ * Standard: Institutional Apex v2026.1.20
+ */
 model Ticket {
-  id               String          @id @default(uuid()) @map("id") @db.Uuid
-  userId           String          @map("user_id") @db.Uuid
-  user             User            @relation("UserTickets", fields: [userId], references: [id])
-  merchantId       String?         @map("merchant_id")
-  assignedAgentId  String?         @map("assigned_agent_id") @db.Uuid
-  agent            User?           @relation("AgentTickets", fields: [assignedAgentId], references: [id])
-  subject          String          @map("subject")
-  status           String          @default("OPEN") @map("status")
-  priority         TicketPriority  @default(MEDIUM) @map("priority")
-  category         TicketCategory  @default(OTHER) @map("category")
-  relatedPaymentId String?         @map("related_payment_id")
-  relatedOrderId   String?         @map("related_order_id") @db.Uuid
-  messages         TicketMessage[]
-  feedbacks        Feedback[]
+  id String @id @default(uuid()) @map("id") @db.Uuid
 
+  // 1. Ownership: The User who opened the ticket
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation("UserTickets", fields: [userId], references: [id])
+
+  // 2. Multi-Tenancy: The Merchant this ticket is directed to
+  merchantId String? @map("merchant_id")
+
+  // 3. Assignment: The Staff/Agent currently handling the ticket
+  assignedAgentId String? @map("assigned_agent_id") @db.Uuid
+  agent           User?   @relation("AgentTickets", fields: [assignedAgentId], references: [id])
+
+  // 4. Resolution: Audit trail for who closed the ticket
+  resolvedBy String? @map("resolved_by") @db.Uuid
+  resolver   User?   @relation("ResolvedTickets", fields: [resolvedBy], references: [id])
+
+  // --- CORE DATA ---
+  subject  String         @map("subject")
+  // 🚩 FIX: Changed from String to TicketStatus Enum to resolve ts(2305)
+  status   TicketStatus   @default(OPEN) @map("status")
+  priority TicketPriority @default(MEDIUM) @map("priority")
+  category TicketCategory @default(OTHER) @map("category")
+
+  // --- CONTEXTUAL LINKS ---
+  relatedPaymentId String? @map("related_payment_id")
+  relatedOrderId   String? @map("related_order_id") @db.Uuid
+
+  // --- RELATIONS ---
+  messages  TicketMessage[]
+  feedbacks Feedback[]
+
+  // --- TELEMETRY ---
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  // --- INDEXING: High-Density Search ---
   @@index([userId])
   @@index([merchantId])
   @@index([status])
