@@ -20,6 +20,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // =================================================================
@@ -252,6 +253,14 @@ enum DispatchType {
   TRUCK @map("truck")
 
   @@map("dispatch_type")
+}
+
+enum AffiliateStatus {
+  PENDING  @map("pending")
+  APPROVED @map("approved")
+  REJECTED @map("rejected")
+
+  @@map("affiliate_status")
 }
 
 // =================================================================
@@ -941,6 +950,7 @@ model Payment {
   gatewayReference      String  @unique @map("gateway_reference")
   providerTransactionId String? @unique @map("provider_transaction_id")
   providerResponse      Json?   @map("provider_response")
+  metadata              Json?   @map("metadata")
 
   // --- AUDIT TRAIL ---
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -1141,8 +1151,8 @@ model AffiliateConversion {
   paymentId String  @unique @map("payment_id") @db.Uuid
   payment   Payment @relation(fields: [paymentId], references: [id])
 
-  commissionAmount Decimal? @map("commission_amount") @db.Decimal(20, 8)
-  status           String   @default("PENDING") @map("status")
+  commissionAmount Decimal?        @map("commission_amount") @db.Decimal(20, 8)
+  status           AffiliateStatus @default(PENDING) @map("status")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
