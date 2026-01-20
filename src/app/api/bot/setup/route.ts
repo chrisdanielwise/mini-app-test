@@ -16,10 +16,20 @@ export async function GET() {
   const webhookUrl = `https://${appUrl}/api/bot`;
 
   if (!appUrl || !secretToken) {
-    return NextResponse.json({ 
-      error: "MISSING_CONFIG", 
-      details: "Ensure NEXT_PUBLIC_APP_URL and BOT_SECRET_TOKEN are in Vercel Env Vars." 
-    }, { status: 500 });
+    console.log("🛠️ SETUP_DIAGNOSTICS:", {
+      APP_URL_DETECTED: !!process.env.NEXT_PUBLIC_APP_URL,
+      VERCEL_URL_DETECTED: !!process.env.VERCEL_URL,
+      SECRET_TOKEN_DETECTED: !!process.env.BOT_SECRET_TOKEN,
+      NODE_ENV: process.env.NODE_ENV,
+    });
+    return NextResponse.json(
+      {
+        error: "MISSING_CONFIG",
+        details:
+          "Ensure NEXT_PUBLIC_APP_URL and BOT_SECRET_TOKEN are in Vercel Env Vars.",
+      },
+      { status: 500 },
+    );
   }
 
   try {
@@ -37,15 +47,18 @@ export async function GET() {
       webhook: webhookUrl,
       config: {
         domain: appUrl,
-        timestamp: new Date().toISOString()
-      }
+        timestamp: new Date().toISOString(),
+      },
     });
   } catch (error: any) {
     console.error("🔥 [Webhook_Setup_Failure]:", error);
-    return NextResponse.json({ 
-      success: false, 
-      error: error.message,
-      hint: "Check if your BOT_TOKEN is valid."
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message,
+        hint: "Check if your BOT_TOKEN is valid.",
+      },
+      { status: 500 },
+    );
   }
 }
