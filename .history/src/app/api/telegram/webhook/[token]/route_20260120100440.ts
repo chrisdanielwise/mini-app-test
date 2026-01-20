@@ -15,18 +15,12 @@ import {
   SubscriptionStatus,
 } from "@/generated/prisma";
 
-// 🚀 VERCEL_SERVERLESS_TUNING
-export const maxDuration = 60; // Extend to 60s for heavy background tasks
-export const dynamic = "force-dynamic";
-
 /**
  * 🚀 GLOBAL BIGINT SERIALIZATION PATCH
  */
-if (!(BigInt.prototype as any).toJSON) {
-  (BigInt.prototype as any).toJSON = function () {
-    return this.toString();
-  };
-}
+(BigInt.prototype as any).toJSON = function () {
+  return this.toString();
+};
 
 export async function POST(
   request: Request,
@@ -35,9 +29,9 @@ export async function POST(
   const { token: webhookToken } = await params;
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
 
-  // 🛡️ SECURITY GATE: Only proceed if tokens match exactly
+  // 🛡️ SECURITY GATE: Early exit to stop unauthorized requests
   if (!botToken || webhookToken !== botToken) {
-    return NextResponse.json({ ok: true }); // Return 200 to Telegram regardless
+    return NextResponse.json({ ok: true });
   }
 
   try {
@@ -45,14 +39,17 @@ export async function POST(
 
     /**
      * 🏎️ NEXT.JS 15 "AFTER" PROTOCOL
-     * Respond to Telegram immediately (200 OK) so they don't retry.
-     * All logic runs in the "Laminar Reservoir" (Background).
+     * We respond to Telegram instantly (200 OK) to stop the retry loop,
+     * then execute heavy database/API logic in the background.
      */
     after(async () => {
       try {
         // --- 💳 1. PAYMENT RECONCILIATION ---
         if (body.pre_checkout_query) {
-          await telegramBot.api.answerPreCheckoutQuery(body.pre_checkout_query.id, true);
+          await telegramBot.api.answerPreCheckoutQuery(
+            body.pre_checkout_query.id,
+            true
+          );
           return;
         }
 
@@ -82,18 +79,20 @@ export async function POST(
         }
 
         // 🛰️ STANDARD UPDATE DISPATCHER (GrammY)
-        // ✅ FIX: Using 'http' adapter for standard Next.js 15 requests
         const handleUpdate = webhookCallback(telegramBot, "std/http");
-        
-        // ✅ FIX: Do not create a new Request manually; handleUpdate can process the body
-        // and headers if configured correctly, or pass the update directly.
-        await telegramBot.handleUpdate(body); 
-
+        await handleUpdate(
+          new Request(request.url, {
+            method: "POST",
+            headers: request.headers,
+            body: JSON.stringify(body),
+          })
+        );
       } catch (innerError: any) {
         console.error("🔥 [Background_Process_Fault]:", innerError.message);
       }
     });
 
+    // 🚀 RESPOND INSTANTLY
     return NextResponse.json({ ok: true });
   } catch (error: any) {
     console.error("🔥 [Webhook_Ingress_Fault]:", error.message);
