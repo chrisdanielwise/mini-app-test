@@ -16,12 +16,7 @@ export async function GET() {
   const webhookUrl = `https://${appUrl}/api/bot`;
 
   if (!appUrl || !secretToken) {
-    console.log("🛠️ SETUP_DIAGNOSTICS:", {
-      APP_URL_DETECTED: !!process.env.NEXT_PUBLIC_APP_URL,
-      VERCEL_URL_DETECTED: !!process.env.VERCEL_URL,
-      SECRET_TOKEN_DETECTED: !!process.env.BOT_SECRET_TOKEN,
-      NODE_ENV: process.env.NODE_ENV,
-    });
+   
     return NextResponse.json(
       {
         error: "MISSING_CONFIG",

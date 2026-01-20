@@ -7,20 +7,19 @@ if (!token) {
 }
 
 /**
- * 🛰️ GLOBAL BOT INSTANCE (v2026.1.20)
- * Logic: Implements singleton pattern for Dev and Webhook callback for Prod.
+ * 🛰️ GLOBAL BOT INSTANCE (Apex v2026.1.21)
+ * Singleton pattern to prevent multiple bot instances during HMR or Vercel Cold Starts.
  */
 const globalForBot = global as unknown as { telegramBot: Bot };
 
 export const telegramBot = globalForBot.telegramBot || new Bot(token);
 
-// Cache the instance in development to prevent hot-reload duplicates
 if (process.env.NODE_ENV !== "production") {
   globalForBot.telegramBot = telegramBot;
 }
 
 /**
  * 🌊 WEBHOOK_ADAPTER
- * This is what Vercel uses to "wake up" the bot.
+ * Used as a fallback or for standard GrammY middleware handling.
  */
 export const handleUpdate = webhookCallback(telegramBot, "std/http");
