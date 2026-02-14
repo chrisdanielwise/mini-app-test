@@ -1,5 +1,3 @@
-"use client";
-
 import * as React from "react";
 import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";

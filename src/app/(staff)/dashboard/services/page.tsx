@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { requireAuth, sanitizeData } from "@/lib/auth/session";
 import prisma from "@/lib/db";
 import { 

@@ -4,7 +4,7 @@ import React, {
   createContext,
   useContext,
   useState,
-  useLayoutEffect,
+  useEffect, // ✅ Swapped from useLayoutEffect for SSR stability
   useCallback,
   useRef,
   memo,
@@ -34,12 +34,13 @@ interface DeviceState {
 const DeviceContext = createContext<DeviceState | null>(null);
 
 /**
- * 🛰️ DEVICE_PROVIDER
- * Strategy: Event-Driven Hydration & Forced Delay Check.
- * Mission: Eliminates "Zero-Inch" SafeAreas and "Expected UserRole" UI layout shifts.
+ * 🛰️ DEVICE_PROVIDER (v2026.1.14)
+ * Strategy: Hydration Shielding & Fail-Safe Defaults.
+ * Fix: Prevents "window is undefined" crashes during Render build/prerender.
  */
 export const DeviceProvider = memo(
   ({ children }: { children: React.ReactNode }) => {
+    // 🛡️ INITIAL_STATE: Safe for Server-Side Rendering
     const [state, setState] = useState<DeviceState>({
       isMobile: true,
       isTablet: false,
@@ -49,17 +50,17 @@ export const DeviceProvider = memo(
       safeArea: { top: 0, bottom: 0, left: 0, right: 0 },
       viewportHeight: 0,
       viewportWidth: 0,
-      isReady: false,
+      isReady: false, // Remains false until client-side mount
     });
 
+    const [mounted, setMounted] = useState(false);
     const lastKey = useRef("");
 
     const updateEnvironment = useCallback(() => {
+      // 🧱 BUILD_SHIELD: Exit if not in browser
       if (typeof window === "undefined") return;
 
       const tg = (window as any).Telegram?.WebApp;
-
-      // 🛡️ HARDWARE SNAP: Snapshot physical dimensions
       const w = window.innerWidth;
       const vh = tg?.viewportHeight || window.innerHeight;
 
@@ -72,7 +73,6 @@ export const DeviceProvider = memo(
       const isMobile = w < BREAKPOINTS.md;
       const isPortrait = vh > w;
 
-      // 🛰️ TMA SAFE-AREA INGRESS: Resolve hardware offsets
       const safeArea = {
         top: tg?.safeAreaInset?.top ?? 0,
         bottom: tg?.safeAreaInset?.bottom ?? 0,
@@ -84,14 +84,13 @@ export const DeviceProvider = memo(
       if (lastKey.current === currentKey) return;
       lastKey.current = currentKey;
 
-      // 🌊 CSS VARIABLE INJECTION: Low-level UI anchor synchronization
+      // 🌊 CSS VARIABLE INJECTION
       const doc = document.documentElement;
       doc.style.setProperty("--vh", `${vh * 0.01}px`);
       doc.style.setProperty("--tg-viewport-height", `${vh}px`);
       doc.style.setProperty("--tg-safe-top", `${safeArea.top}px`);
       doc.style.setProperty("--tg-safe-bottom", `${safeArea.bottom}px`);
 
-      // 🚩 BASELINE_PROTOCOL: Sheet Close button & scrolling math
       if (!doc.style.getPropertyValue("--emergency-offset")) {
         doc.style.setProperty("--emergency-offset", "0px");
       }
@@ -109,7 +108,8 @@ export const DeviceProvider = memo(
       });
     }, []);
 
-    useLayoutEffect(() => {
+    useEffect(() => {
+      setMounted(true);
       updateEnvironment();
 
       const tg = (window as any).Telegram?.WebApp;
@@ -117,15 +117,11 @@ export const DeviceProvider = memo(
       if (tg) {
         tg.ready();
         tg.expand();
-
-        // Listen for hardware-level signals
         tg.onEvent("viewportChanged", updateEnvironment);
         tg.onEvent("safeAreaChanged", updateEnvironment);
       }
 
-      // 🏁 RACE_CONDITION_GUARD: Forced re-check for iOS/MacBook window drift
       const timer = setTimeout(updateEnvironment, 400);
-
       window.addEventListener("resize", updateEnvironment);
 
       return () => {
@@ -139,13 +135,22 @@ export const DeviceProvider = memo(
     }, [updateEnvironment]);
 
     return (
-      <DeviceContext.Provider value={state}>{children}</DeviceContext.Provider>
+      <DeviceContext.Provider value={state}>
+        {/* 🛡️ Only render children if mounted to prevent context mismatch during build */}
+        {mounted ? children : <div className="bg-black min-h-screen" />}
+      </DeviceContext.Provider>
     );
-  }
+  },
 );
 
 export function useDeviceContext() {
   const context = useContext(DeviceContext);
-  if (!context) throw new Error("useDevice missing DeviceProvider");
-  return context;
+  // During build, this might be null. Return a safe partial if needed.
+  return (
+    context ||
+    ({
+      isReady: false,
+      safeArea: { top: 0, bottom: 0, left: 0, right: 0 },
+    } as DeviceState)
+  );
 }

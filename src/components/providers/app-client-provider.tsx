@@ -12,37 +12,57 @@ import { useHaptics } from "@/lib/hooks/use-haptics";
 import { useDeviceContext } from "@/components/providers/device-provider";
 
 /**
- * 🛰️ APP_CLIENT_PROVIDER (Institutional Apex v2026.1.20)
- * Strategy: Vertical Compression & Hardware-Safe Handshake.
- * Fix: Resolved TS2339 by hardening the Telegram WebApp method bridge.
+ * 🛰️ APP_CLIENT_PROVIDER (v2026.1.21)
+ * Strategy: Hydration Shielding & Context Safety.
+ * Fixes: Prerender "useContext" null error by deferring context-dependent logic 
+ * until the component is mounted on the client.
  */
 export function AppClientProvider({ children }: { children: React.ReactNode }) {
+  // 🛡️ HYDRATION GUARD: Vital for Render/Next.js Build Stability
+  const [mounted, setMounted] = useState(false);
   const [isClientReady, setIsClientReady] = useState(false);
+  
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { impact } = useHaptics();
-  const { flavor } = useLayout();
+
+  /** * 🔍 SAFE CONTEXT ACCESS
+   * We access contexts optionally because during pre-rendering, these providers
+   * may return null, which causes the "destructuring of null" crash.
+   */
+  const layout = useLayout();
+  const haptics = useHaptics();
+  const device = useDeviceContext();
+
+  const flavor = layout?.flavor || "DEFAULT";
+  const impact = haptics?.impact;
+  const isDeviceReady = device?.isReady || false;
   
-  const { isReady: isDeviceReady } = useDeviceContext();
   const isStaff = flavor === "AMBER";
   const didInit = useRef(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Set mounted true once the browser takes over
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   /**
    * 🪜 TELEGRAM HANDSHAKE PROTOCOL
    * Logic: Capability injection & Version-aware recalibration.
    */
   const initTMA = useCallback((force = false) => {
+    // Exit if server-side or not yet mounted to prevent 'window' errors
+    if (typeof window === "undefined" || !mounted) return false;
+
     const isAtGate = pathname.includes("/login") || searchParams.get('reason');
     
-    if (isAtGate || typeof window === "undefined") {
+    if (isAtGate) {
       setIsClientReady(true);
       didInit.current = true;
       if (intervalRef.current) clearInterval(intervalRef.current);
       return true;
     }
 
-    // ✅ FIX: Use type assertion to avoid TS2339/TS18048
     const tg = (window as any).Telegram?.WebApp;
     if (!tg) return false;
     if (didInit.current && !force) return true;
@@ -68,17 +88,12 @@ export function AppClientProvider({ children }: { children: React.ReactNode }) {
     // 1. Hardware Control Sync
     if (hasV61) {
       try {
-        // ✅ FIX: Strict method existence check before call
-        if (typeof tg.disableVerticalSwipes === 'function') {
-          tg.disableVerticalSwipes();
-        }
-        if (typeof tg.enableClosingConfirmation === 'function') {
-          tg.enableClosingConfirmation(); 
-        }
+        if (typeof tg.disableVerticalSwipes === 'function') tg.disableVerticalSwipes();
+        if (typeof tg.enableClosingConfirmation === 'function') tg.enableClosingConfirmation(); 
       } catch (e) { console.warn("🛰️ [Hardware_Access] Restricted."); }
     }
 
-    if (!didInit.current) impact("light");
+    if (!didInit.current && impact) impact("light");
 
     // 2. Apex Variable Bridge
     const theme = tg.themeParams || {};
@@ -107,11 +122,11 @@ export function AppClientProvider({ children }: { children: React.ReactNode }) {
     didInit.current = true;
     setIsClientReady(true);
     return true;
-  }, [isStaff, pathname, searchParams, impact]);
+  }, [isStaff, pathname, searchParams, impact, mounted]);
 
-  // High-Frequency Polling: 100ms for fast bridge recovery
+  // High-Frequency Polling
   useEffect(() => {
-    if (didInit.current) return;
+    if (!mounted || didInit.current) return;
     if (initTMA()) return;
 
     intervalRef.current = setInterval(() => {
@@ -121,18 +136,30 @@ export function AppClientProvider({ children }: { children: React.ReactNode }) {
     }, 100); 
 
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [initTMA]);
+  }, [initTMA, mounted]);
 
-  // Route Synchronization for flavor changes
+  // Route Synchronization
   useEffect(() => {
-    if (didInit.current) initTMA(true); 
-  }, [isStaff, pathname, initTMA]);
+    if (mounted && didInit.current) initTMA(true); 
+  }, [isStaff, pathname, initTMA, mounted]);
+
+  /**
+   * 🧱 BUILD-TIME FALLBACK
+   * If we are not mounted, we return a simple container to satisfy the Build Worker
+   * and prevent the "useContext" null crash.
+   */
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-black" aria-hidden="true" />
+    );
+  }
 
   const isFullyStabilized = isClientReady && isDeviceReady;
 
   return (
     <>
       <Script 
+        key="telegram-ingress-core"
         src="https://telegram.org/js/telegram-web-app.js" 
         strategy="beforeInteractive" 
       />
