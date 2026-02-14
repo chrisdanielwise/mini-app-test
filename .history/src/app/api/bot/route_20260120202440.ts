@@ -92,7 +92,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 }
-
 // --- 🏗️ LOGIC HANDLERS ---
 
 async function handleIdentityHandshake(message: any) {

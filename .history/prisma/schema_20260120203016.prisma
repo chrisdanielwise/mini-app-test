@@ -21,7 +21,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL") // Must be the Pooled URL (usually port 6543)
-  directUrl = env("DIRECT_URL") // The direct connection for migrations
+  directUrl = env("DIRECT_URL")   // The direct connection for migrations
 }
 
 // =================================================================
@@ -951,7 +951,7 @@ model Payment {
   gatewayReference      String  @unique @map("gateway_reference")
   providerTransactionId String? @unique @map("provider_transaction_id")
   providerResponse      Json?   @map("provider_response")
-  metadata              Json?   @map("metadata")
+  metadata         Json? @map("metadata")
 
   // --- AUDIT TRAIL ---
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -1152,7 +1152,7 @@ model AffiliateConversion {
   paymentId String  @unique @map("payment_id") @db.Uuid
   payment   Payment @relation(fields: [paymentId], references: [id])
 
-  commissionAmount Decimal?        @map("commission_amount") @db.Decimal(20, 8)
+  commissionAmount Decimal? @map("commission_amount") @db.Decimal(20, 8)
   status           AffiliateStatus @default(PENDING) @map("status")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)

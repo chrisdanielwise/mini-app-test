@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { telegramBot } from "@/lib/telegram/bot";
+import { telegramBot } from "@/lib/telegram/bot"; // Your Bot instance
 import { InlineKeyboard } from "grammy";
 import {
   generateMagicToken,
@@ -15,9 +15,9 @@ import {
   SubscriptionStatus,
 } from "@/generated/prisma";
 
-// 🚀 VERCEL_SERVERLESS_TUNING
 export const maxDuration = 60; 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 /**
  * 🛰️ GLOBAL BIGINT SERIALIZATION PATCH
@@ -28,18 +28,12 @@ if (!(BigInt.prototype as any).toJSON) {
   };
 }
 
-/**
- * 🛰️ BOT_INGRESS_ROUTE
- * Fixes: "Cannot read properties of undefined (reading 'get')"
- */
 export async function POST(request: Request) {
   try {
     // 🛡️ SECURITY HANDSHAKE
-    // ✅ FIX: Use 'request.headers' exactly as defined in the function arguments
     const secretToken = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
     
     if (secretToken !== process.env.BOT_SECRET_TOKEN) {
-      console.warn("⚠️ [Security_Violation]: Identity mismatch.");
       return NextResponse.json({ ok: true }); 
     }
 
@@ -47,9 +41,11 @@ export async function POST(request: Request) {
 
     /**
      * 🏎️ LAMINAR_FLOW (Background Execution)
+     * Next.js 15 'after' ensures the user gets a 200 OK immediately.
      */
     after(async () => {
       try {
+        // --- 💳 1. PAYMENT RECONCILIATION ---
         if (body.pre_checkout_query) {
           await telegramBot.api.answerPreCheckoutQuery(body.pre_checkout_query.id, true);
           return;
@@ -60,6 +56,7 @@ export async function POST(request: Request) {
           return;
         }
 
+        // --- 🛡️ 2. COMMAND INTERCEPTORS ---
         const text = body.message?.text || "";
         const chatId = body.message?.chat?.id;
 
@@ -73,12 +70,14 @@ export async function POST(request: Request) {
           return;
         }
 
+        // --- 🛡️ 3. CALLBACK INTERCEPTORS ---
         if (body.callback_query?.data === "trigger_remote_wipe") {
           await handleRemoteWipe(body.callback_query);
           return;
         }
 
-        // 🛰️ GENERAL MIDDLEWARE
+        // 🛰️ DISPATCH TO GENERAL MIDDLEWARE
+        // This handles all other messages not caught above
         await telegramBot.handleUpdate(body);
 
       } catch (innerError: any) {

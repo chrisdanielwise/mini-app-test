@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Smartphone,
   ShieldCheck,
@@ -10,26 +10,27 @@ import {
   Globe,
   Lock,
   UserCog,
+  Activity
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // 🏛️ Institutional Contexts
 import { useDeviceContext } from "@/components/providers/device-provider";
 import { useHaptics } from "@/lib/hooks/use-haptics";
-import { useInstitutionalAuth } from "@/lib/hooks/use-institutional-auth";
 
 // 🛠️ Atomic UI Components
 import { LoadingScreen } from "@/components/ui/loading-spinner";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-
-/**
- * 🛰️ CONFIGURATION
- * force-dynamic: Prevents Next.js from trying to pre-render this page during build time.
- */
+import { useInstitutionalAuth } from "@/lib/hooks/use-institutional-auth";
 export const dynamic = "force-dynamic";
 
+/**
+ * 🛰️ USER_PREFERENCES (Institutional Apex v2026.1.20)
+ * Strategy: Vertical Compression & Tactical Slim Geometry.
+ * Fix: High-density rows (p-4) and shrunken typography prevent blowout.
+ */
 export default function UserPreferencesPage() {
   const { user, isAuthenticated, isLocked, isStaff } = useInstitutionalAuth();
   const { impact } = useHaptics();
@@ -44,23 +45,8 @@ export default function UserPreferencesPage() {
   } = useDeviceContext();
 
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
-  const [mounted, setMounted] = useState(false);
 
-  /**
-   * 🛡️ HYDRATION GUARD
-   * Ensures that the component only renders logic after mounting on the client.
-   * This prevents the "useContext" null error during Render's build process.
-   */
-  useEffect(() => {
-    setMounted(true);
-    const saved = localStorage.getItem("user_haptics_enabled");
-    if (saved !== null) setHapticsEnabled(saved === "true");
-  }, []);
-
-  if (!mounted || !isReady || isLocked) {
-    return <LoadingScreen message="SYNCING_HARDWARE_NODES..." />;
-  }
-
+  if (!isReady || isLocked) return <LoadingScreen message="SYNCING_HARDWARE_NODES..." />;
   if (!isAuthenticated) return <IdentityNullFallback />;
 
   const toggleHaptics = (checked: boolean) => {
