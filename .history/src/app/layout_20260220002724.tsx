@@ -55,7 +55,7 @@ export default function RootLayout({
           strategy="beforeInteractive"
         />
         <Script key="eruda-init" id="eruda-init" strategy="afterInteractive">
-          {`if (typeof eruda !== 'undefined') eruda.init();`}
+          {`eruda.init();`}
         </Script>
       </head>
 

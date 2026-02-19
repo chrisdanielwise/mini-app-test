@@ -54,8 +54,8 @@ export default function RootLayout({
           src="https://cdn.jsdelivr.net/npm/eruda"
           strategy="beforeInteractive"
         />
-        <Script key="eruda-init" id="eruda-init" strategy="afterInteractive">
-          {`if (typeof eruda !== 'undefined') eruda.init();`}
+        <Script id="eruda-init" strategy="afterInteractive">
+          {`eruda.init();`}
         </Script>
       </head>
 

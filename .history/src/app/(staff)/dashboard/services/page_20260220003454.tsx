@@ -1,14 +1,8 @@
 import { requireAuth, sanitizeData } from "@/lib/auth/session";
 import prisma from "@/lib/db";
-import {
-  Users,
-  Zap,
-  Globe,
-  Activity,
-  Terminal,
-  Building2,
-  ChevronLeft,
-  ChevronRight,
+import { 
+  Users, Zap, Globe, Activity, 
+  Terminal, Building2, ChevronLeft, ChevronRight 
 } from "lucide-react";
 import { CreateServiceModal } from "@/components/dashboard/create-service-modal";
 import { ServiceActionWrapper } from "@/components/dashboard/service-action-wrapper";
@@ -25,17 +19,13 @@ export const revalidate = 0; // ✅ ADDED: Ensures fresh telemetry on every load
 export default async function ServicesPage() {
   // 🛡️ AUTH_INGRESS: Verify node identity
   const session = await requireAuth();
-
+  
   // Guard for build-time safety (Next.js 15+ static analysis)
   if (!session?.user) return null;
 
   const { role } = session.user;
   const realMerchantId = session.merchantId;
-  const isPlatformStaff = [
-    "super_admin",
-    "platform_manager",
-    "platform_support",
-  ].includes(role);
+  const isPlatformStaff = ["super_admin", "platform_manager", "platform_support"].includes(role);
 
   // 🏛️ DATA_FETCH: Direct Prisma ingress
   const rawServices = await prisma.service.findMany({
@@ -52,116 +42,76 @@ export default async function ServicesPage() {
 
   return (
     <div className="w-full h-full flex flex-col min-w-0 overflow-hidden text-foreground bg-black">
+      
       {/* --- 🛡️ FIXED COMMAND HUD --- */}
       <div className="shrink-0 z-30 bg-black/60 backdrop-blur-xl border-b border-white/5 pb-4 pt-2">
         <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 w-full relative group px-6">
           <div className="flex flex-col gap-2 min-w-fit flex-1">
             <div className="flex items-center gap-2">
-              <Zap
-                className={cn(
-                  "h-3 w-3 shrink-0 animate-pulse transition-colors",
-                  isPlatformStaff
-                    ? "text-amber-500 fill-amber-500"
-                    : "text-primary fill-primary",
-                )}
-              />
-              <span
-                className={cn(
-                  "text-[8px] font-black uppercase tracking-[0.4em] italic opacity-60",
-                  isPlatformStaff ? "text-amber-500" : "text-primary",
-                )}
-              >
-                {isPlatformStaff
-                  ? "Global Fleet Oversight"
-                  : "Local Asset Control"}
+              <Zap className={cn(
+                "h-3 w-3 shrink-0 animate-pulse transition-colors", 
+                isPlatformStaff ? "text-amber-500 fill-amber-500" : "text-primary fill-primary"
+              )} />
+              <span className={cn(
+                "text-[8px] font-black uppercase tracking-[0.4em] italic opacity-60",
+                isPlatformStaff ? "text-amber-500" : "text-primary"
+              )}>
+                {isPlatformStaff ? "Global Fleet Oversight" : "Local Asset Control"}
               </span>
             </div>
 
             <div className="space-y-0.5">
               <h1 className="text-xl md:text-2xl lg:text-3xl font-black tracking-tighter uppercase italic leading-none truncate">
-                Service{" "}
-                <span
-                  className={cn(
-                    isPlatformStaff ? "text-amber-500" : "text-primary",
-                  )}
-                >
-                  Assets
-                </span>
+                Service <span className={cn(isPlatformStaff ? "text-amber-500" : "text-primary")}>Assets</span>
               </h1>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 opacity-20 italic">
                 <p className="text-[8px] font-black uppercase tracking-widest flex items-center gap-1.5">
                   <Globe className="h-3 w-3" />
-                  Node:{" "}
-                  <span className="text-foreground">
-                    {session.config?.companyName || "PLATFORM_ROOT"}
-                  </span>
+                  Node: <span className="text-foreground">{session.config?.companyName || "PLATFORM_ROOT"}</span>
                 </p>
                 <p className="text-[8px] font-black uppercase tracking-widest flex items-center gap-1.5">
                   <Terminal className="h-3 w-3" />
-                  Identity:{" "}
-                  <span className="text-foreground uppercase">{role}</span>
+                  Identity: <span className="text-foreground uppercase">{role}</span>
                 </p>
               </div>
             </div>
           </div>
 
           <div className="shrink-0 relative z-10 pb-1 scale-90 origin-bottom-right">
-            <CreateServiceModal
-              merchantId={realMerchantId || "PLATFORM_ROOT"}
-            />
+            <CreateServiceModal merchantId={realMerchantId || "PLATFORM_ROOT"} />
           </div>
         </div>
       </div>
 
       {/* --- 🚀 INTERNAL VOLUME --- */}
       <div className="flex-1 min-h-0 w-full relative p-3 pb-6 flex flex-col">
-        <div
-          className={cn(
-            "flex-1 min-h-0 w-full rounded-[1.5rem] border backdrop-blur-3xl bg-card/40 flex flex-col overflow-hidden shadow-2xl",
-            isPlatformStaff ? "border-amber-500/10" : "border-white/5",
-          )}
-        >
+        <div className={cn(
+          "flex-1 min-h-0 w-full rounded-[1.5rem] border backdrop-blur-3xl bg-card/40 flex flex-col overflow-hidden shadow-2xl",
+          isPlatformStaff ? "border-amber-500/10" : "border-white/5"
+        )}>
+          
           <div className="flex-1 w-full overflow-auto custom-scrollbar overscroll-contain">
             <table className="w-full text-left border-collapse min-w-[900px] table-fixed relative">
               <thead className="bg-zinc-950 sticky top-0 z-20 border-b border-white/5 backdrop-blur-md">
                 <tr className="divide-x divide-white/5">
-                  <th className="w-[35%] px-6 py-3 text-[7.5px] font-black uppercase tracking-[0.5em] text-muted-foreground/30 italic">
-                    Signal_Identity
-                  </th>
-                  {isPlatformStaff && (
-                    <th className="w-[15%] px-6 py-3 text-[7.5px] font-black uppercase tracking-[0.5em] text-amber-500/30 italic">
-                      Node
-                    </th>
-                  )}
-                  <th className="w-[12%] px-6 py-3 text-[7.5px] font-black uppercase tracking-[0.5em] text-muted-foreground/30 italic">
-                    Load
-                  </th>
-                  <th className="w-[12%] px-6 py-3 text-[7.5px] font-black uppercase tracking-[0.5em] text-muted-foreground/30 italic">
-                    Arch
-                  </th>
-                  <th className="w-[15%] px-6 py-3 text-[7.5px] font-black uppercase tracking-[0.5em] text-muted-foreground/30 italic">
-                    Status
-                  </th>
+                  <th className="w-[35%] px-6 py-3 text-[7.5px] font-black uppercase tracking-[0.5em] text-muted-foreground/30 italic">Signal_Identity</th>
+                  {isPlatformStaff && <th className="w-[15%] px-6 py-3 text-[7.5px] font-black uppercase tracking-[0.5em] text-amber-500/30 italic">Node</th>}
+                  <th className="w-[12%] px-6 py-3 text-[7.5px] font-black uppercase tracking-[0.5em] text-muted-foreground/30 italic">Load</th>
+                  <th className="w-[12%] px-6 py-3 text-[7.5px] font-black uppercase tracking-[0.5em] text-muted-foreground/30 italic">Arch</th>
+                  <th className="w-[15%] px-6 py-3 text-[7.5px] font-black uppercase tracking-[0.5em] text-muted-foreground/30 italic">Status</th>
                   <th className="w-[11%] px-6 py-3"></th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-white/5">
                 {services.map((service: any) => (
-                  <tr
-                    key={service.id}
-                    className="hover:bg-white/[0.01] transition-colors divide-x divide-white/5 group"
-                  >
+                  <tr key={service.id} className="hover:bg-white/[0.01] transition-colors divide-x divide-white/5 group">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-4 min-w-0">
-                        <div
-                          className={cn(
-                            "size-9 shrink-0 rounded-lg flex items-center justify-center border transition-transform group-hover:rotate-12",
-                            isPlatformStaff
-                              ? "border-amber-500/20 text-amber-500"
-                              : "border-primary/20 text-primary",
-                          )}
-                        >
+                        <div className={cn(
+                          "size-9 shrink-0 rounded-lg flex items-center justify-center border transition-transform group-hover:rotate-12",
+                          isPlatformStaff ? "border-amber-500/20 text-amber-500" : "border-primary/20 text-primary"
+                        )}>
                           <Activity className="size-4" />
                         </div>
                         <div className="flex flex-col min-w-0 leading-tight">
@@ -178,9 +128,7 @@ export default async function ServicesPage() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2 text-amber-500/60 font-black uppercase italic text-[9px] truncate">
                           <Building2 className="size-3 shrink-0" />
-                          <span className="truncate">
-                            {service.merchant?.companyName || "ROOT"}
-                          </span>
+                          <span className="truncate">{service.merchant?.companyName || "ROOT"}</span>
                         </div>
                       </td>
                     )}
@@ -194,30 +142,16 @@ export default async function ServicesPage() {
                       {service.tiers?.length || 0}N
                     </td>
                     <td className="px-6 py-4">
-                      <div
-                        className={cn(
-                          "inline-flex items-center rounded-md px-2 py-0.5 text-[6px] font-black uppercase border tracking-widest",
-                          service.isActive
-                            ? "text-emerald-500 border-emerald-500/20"
-                            : "text-amber-500 border-amber-500/20",
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            "size-1 rounded-full mr-1",
-                            service.isActive
-                              ? "bg-emerald-500"
-                              : "bg-amber-500",
-                          )}
-                        />
+                      <div className={cn(
+                        "inline-flex items-center rounded-md px-2 py-0.5 text-[6px] font-black uppercase border tracking-widest",
+                        service.isActive ? "text-emerald-500 border-emerald-500/20" : "text-amber-500 border-amber-500/20"
+                      )}>
+                        <div className={cn("size-1 rounded-full mr-1", service.isActive ? "bg-emerald-500" : "bg-amber-500")} />
                         {service.isActive ? "Online" : "Paused"}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <ServiceActionWrapper
-                        serviceId={service.id}
-                        compact={true}
-                      />
+                      <ServiceActionWrapper serviceId={service.id} compact={true} />
                     </td>
                   </tr>
                 ))}
@@ -229,12 +163,8 @@ export default async function ServicesPage() {
           <div className="shrink-0 h-14 border-t border-white/5 bg-white/[0.02] flex items-center justify-between px-6 backdrop-blur-md">
             <div className="flex items-center gap-6">
               <div className="flex flex-col leading-none">
-                <span className="text-[6px] font-black uppercase tracking-[0.3em] opacity-20 italic">
-                  Total_Assets
-                </span>
-                <span className="text-[10px] font-black italic tracking-tighter mt-1">
-                  {services.length} Nodes
-                </span>
+                <span className="text-[6px] font-black uppercase tracking-[0.3em] opacity-20 italic">Total_Assets</span>
+                <span className="text-[10px] font-black italic tracking-tighter mt-1">{services.length} Nodes</span>
               </div>
             </div>
 

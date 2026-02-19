@@ -43,19 +43,15 @@ export default function RootLayout({
     >
       <head>
         <Script
-        id="tg-webapp-core"
-          key="tg-webapp-core"
           src="https://telegram.org/js/telegram-web-app.js"
           strategy="beforeInteractive"
         />
         <Script
-        id="eruda-library"
-          key="eruda-library"
           src="https://cdn.jsdelivr.net/npm/eruda"
           strategy="beforeInteractive"
         />
-        <Script key="eruda-init" id="eruda-init" strategy="afterInteractive">
-          {`if (typeof eruda !== 'undefined') eruda.init();`}
+        <Script id="eruda-init" strategy="afterInteractive">
+          {`eruda.init();`}
         </Script>
       </head>
 
