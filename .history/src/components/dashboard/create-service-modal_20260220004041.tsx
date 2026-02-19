@@ -262,7 +262,8 @@ export function CreateServiceModal({ merchantId }: { merchantId: string }) {
             </Button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </body-grid>
+    </DialogContent>
+  </Dialog>
 );
 }

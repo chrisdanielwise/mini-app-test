@@ -1,56 +1,76 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
-  Smartphone,
-  ShieldCheck,
-  Fingerprint,
-  Terminal,
-  Cpu,
-  Globe,
-  Lock,
-  UserCog,
-  Activity
+  Smartphone, ShieldCheck, Fingerprint, Terminal,
+  Cpu, Globe, Lock, UserCog
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // 🏛️ Institutional Contexts
 import { useDeviceContext } from "@/components/providers/device-provider";
 import { useHaptics } from "@/lib/hooks/use-haptics";
+import { useInstitutionalAuth } from "@/lib/hooks/use-institutional-auth";
 
 // 🛠️ Atomic UI Components
 import { LoadingScreen } from "@/components/ui/loading-spinner";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { useInstitutionalAuth } from "@/lib/hooks/use-institutional-auth";
 
 /**
- * 🛰️ USER_PREFERENCES (Institutional Apex v2026.1.20)
- * Strategy: Vertical Compression & Tactical Slim Geometry.
- * Fix: High-density rows (p-4) and shrunken typography prevent blowout.
+ * 🛰️ CONFIGURATION
+ * force-dynamic: Explicitly tells Render/Next.js to skip static analysis for this route.
  */
+export const dynamic = "force-dynamic";
+
 export default function UserPreferencesPage() {
-  const { user, isAuthenticated, isLocked, isStaff } = useInstitutionalAuth();
-  const { impact } = useHaptics();
-  
-  const { 
-    isMobile, 
-    isTablet, 
-    isDesktop, 
-    isPortrait, 
-    safeArea, 
-    isReady 
-  } = useDeviceContext();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  /**
+   * 🛡️ HYDRATION SHIELD
+   * This is the clinical break-point. If mounted is false, the build worker 
+   * stops here and never "sees" the context-dependent sub-component.
+   */
+  if (!mounted) {
+    return <LoadingScreen message="STABILIZING_ENVIRONMENT..." />;
+  }
+
+  return <PreferencesContent />;
+}
+
+function PreferencesContent() {
+  // 🛰️ Institutional Hook Handshake (v2026 Standard)
+  const auth = useInstitutionalAuth();
+  const haptics = useHaptics();
+  const device = useDeviceContext();
+
+  // Safely extract with default fallbacks to prevent destructuring nulls
+  const { user, isAuthenticated, isLocked, isStaff } = auth || {};
+  const { impact } = haptics || {};
+  const { isDesktop, isTablet, isPortrait, safeArea, isReady } = device || {};
 
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
 
-  if (!isReady || isLocked) return <LoadingScreen message="SYNCING_HARDWARE_NODES..." />;
+  useEffect(() => {
+    const saved = localStorage.getItem("user_haptics_enabled");
+    if (saved !== null) setHapticsEnabled(saved === "true");
+  }, []);
+
+  // 🛡️ INTERNAL SYNC CHECK
+  if (!isReady || isLocked) {
+    return <LoadingScreen message="SYNCING_HARDWARE_NODES..." />;
+  }
+
   if (!isAuthenticated) return <IdentityNullFallback />;
 
   const toggleHaptics = (checked: boolean) => {
     setHapticsEnabled(checked);
-    if (checked) impact("medium");
+    if (checked && impact) impact("medium");
     localStorage.setItem("user_haptics_enabled", checked.toString());
   };
 
@@ -59,10 +79,10 @@ export default function UserPreferencesPage() {
   return (
     <div className="flex flex-col min-h-screen animate-in fade-in duration-700 max-w-5xl mx-auto leading-none">
       
-      {/* 🛡️ FIXED HUD: Stationary Header */}
+      {/* 🛡️ FIXED HUD */}
       <header 
         className="px-5 py-6 md:px-8 md:py-8 rounded-b-2xl border-b border-white/5 bg-zinc-950/40 backdrop-blur-xl shadow-2xl relative overflow-hidden transition-all"
-        style={{ paddingTop: `calc(${safeArea.top}px * 0.5 + 1rem)` }}
+        style={{ paddingTop: `calc(${(safeArea?.top || 0)}px * 0.5 + 1rem)` }}
       >
         <div className="space-y-1.5 relative z-10">
           <div className="flex items-center gap-2 opacity-10 italic">
@@ -77,10 +97,10 @@ export default function UserPreferencesPage() {
         </div>
       </header>
 
-      {/* 🚀 INDEPENDENT TACTICAL VOLUME */}
+      {/* 🚀 MAIN CONTENT */}
       <main className="flex-1 px-5 py-8 space-y-8 pb-32">
         
-        {/* --- TACTILE PROTOCOL: High Density Grid --- */}
+        {/* --- TACTILE PROTOCOL --- */}
         <section className="space-y-3">
           <h2 className="text-[7.5px] font-black uppercase tracking-[0.3em] text-muted-foreground/20 italic ml-1">Tactile_Protocol</h2>
           <div className={gridLayout}>
@@ -105,7 +125,7 @@ export default function UserPreferencesPage() {
           </div>
         </section>
 
-        {/* --- IDENTITY TELEMETRY: Clinical Module --- */}
+        {/* --- IDENTITY TELEMETRY --- */}
         <section className="space-y-3">
           <h2 className="text-[7.5px] font-black uppercase tracking-[0.3em] text-muted-foreground/20 italic ml-1">Identity_Telemetry</h2>
           <div className="rounded-xl border border-white/5 bg-zinc-950/40 overflow-hidden shadow-2xl">
@@ -157,7 +177,6 @@ export default function UserPreferencesPage() {
          </p>
       </footer>
 
-      {/* 📐 STATIONARY GRID ANCHOR */}
       <div className="fixed inset-0 pointer-events-none z-[-1] opacity-[0.015] bg-[url('/assets/grid.svg')] bg-center" />
     </div>
   );

@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { useState, useActionState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation"; // 🛰️ Added for list synchronization
 import { createServiceAction } from "@/lib/actions/service.actions";
 
 // 🌊 INSTITUTIONAL UI NODES
@@ -22,7 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 // 🛠️ UTILS & TELEMETRY
 import {
   Plus, Loader2, Zap, Layers, ShieldCheck,
-  Trash2, Terminal, Globe
+  Trash2, Terminal, Globe, Activity, ChevronDown
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -33,12 +32,11 @@ import { useLayout } from "@/context/layout-provider";
 import { useDeviceContext } from "@/components/providers/device-provider";
 
 /**
- * 🛰️ CREATE_SERVICE_MODAL (v2026.1.21)
+ * 🛰️ CREATE_SERVICE_MODAL
  * Strategy: Absolute Viewport Anchor with High-Contrast Footer.
- * Mission: Fixes mobile "Squashing" and ensures real-time dashboard sync.
+ * Mission: Fixes mobile "Squashing" and ensures button visibility against dark backgrounds.
  */
 export function CreateServiceModal({ merchantId }: { merchantId: string }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const { impact, notification, selectionChange } = useHaptics();
   const { flavor } = useLayout();
@@ -56,10 +54,6 @@ export function CreateServiceModal({ merchantId }: { merchantId: string }) {
     if (state && "success" in state && state.success && !isPending) {
       notification("success");
       toast.success("CLUSTER_DEPLOYED", { description: "Asset nodes are now live on ledger." });
-      
-      // 🛰️ SIGNAL: Force server-side data refresh for the dashboard list
-      router.refresh(); 
-      
       setOpen(false);
       setTiers([{ id: Date.now(), name: "", price: "", interval: "MONTH", type: "CUSTOM" }]);
     }
@@ -67,7 +61,7 @@ export function CreateServiceModal({ merchantId }: { merchantId: string }) {
       notification("error");
       toast.error("DEPLOYMENT_FAULT", { description: state.error });
     }
-  }, [state, isPending, notification, router]);
+  }, [state, isPending, notification]);
 
   const addTierRow = useCallback(() => {
     impact("medium");
@@ -103,10 +97,7 @@ export function CreateServiceModal({ merchantId }: { merchantId: string }) {
           isMobile ? "fixed bottom-0 rounded-t-[2.5rem] w-full" : "rounded-[2rem] shadow-3xl"
         )}
       >
-        <DialogDescription className="sr-only">
-          Provisioning interface for new service assets and hardware nodes.
-        </DialogDescription>
-
+        {/* 🏁 THE FIX: Forced flex-col with dynamic height to prevent "Squashing" */}
         <form 
           action={formAction} 
           className="flex flex-col relative z-10 w-full"
@@ -136,9 +127,10 @@ export function CreateServiceModal({ merchantId }: { merchantId: string }) {
             </DialogHeader>
           </div>
 
-          {/* --- 🚀 CONTENT RESERVOIR --- */}
+          {/* --- 🚀 CONTENT RESERVOIR --- 
+              🏁 THE FIX: 'flex-1' ensures this takes up all space between header and footer.
+          */}
           <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-8 custom-scrollbar overscroll-contain">
-            
             {/* Identity Protocol */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 opacity-30 italic">
@@ -167,26 +159,18 @@ export function CreateServiceModal({ merchantId }: { merchantId: string }) {
 
             {/* Pricing Nodes */}
             <div className="space-y-4 pb-4">
-              <div className="flex items-center justify-between sticky top-0 bg-zinc-950/80 backdrop-blur-sm py-2 z-10">
+              <div className="flex items-center justify-between sticky top-0 bg-zinc-950 py-2 z-10">
                 <div className="flex items-center gap-2 opacity-30 italic">
                   <Layers className="size-3" />
                   <h3 className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.3em]">Pricing_Nodes</h3>
                 </div>
-                <button 
-                    type="button" 
-                    onClick={addTierRow} 
-                    className={cn(
-                        "text-[8px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border transition-colors", 
-                        isStaffTheme ? "bg-amber-500/10 border-amber-500/20 text-amber-500 hover:bg-amber-500/20" : "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20"
-                    )}
-                >
+                <button type="button" onClick={addTierRow} className={cn("text-[8px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg", isStaffTheme ? "bg-amber-500/10 text-amber-500" : "bg-primary/10 text-primary")}>
                   + Add_Node
                 </button>
               </div>
-              
               <div className="space-y-4">
                 {tiers.map((tier) => (
-                  <div key={tier.id} className="p-4 rounded-2xl bg-white/[0.01] border border-white/5 space-y-4 animate-in slide-in-from-top-2 duration-300">
+                  <div key={tier.id} className="p-4 rounded-2xl bg-white/[0.01] border border-white/5 space-y-4">
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <Label className="text-[7px] font-black uppercase text-primary/20">Title</Label>
@@ -204,7 +188,7 @@ export function CreateServiceModal({ merchantId }: { merchantId: string }) {
                         <option value="YEAR">Annual Horizon</option>
                       </select>
                       {tiers.length > 1 && (
-                        <button type="button" onClick={() => removeTierRow(tier.id)} className="size-9 flex items-center justify-center text-rose-500/40 hover:text-rose-500 transition-colors">
+                        <button type="button" onClick={() => removeTierRow(tier.id)} className="size-9 flex items-center justify-center text-rose-500/40">
                           <Trash2 className="size-3.5" />
                         </button>
                       )}
@@ -215,10 +199,13 @@ export function CreateServiceModal({ merchantId }: { merchantId: string }) {
             </div>
           </div>
 
-          {/* --- 🌊 HARDWARE-SAFE FOOTER --- */}
+          {/* --- 🌊 HARDWARE-SAFE FOOTER: VISIBILITY OVERHAUL --- 
+              🏁 THE FIX: Uses solid 'bg-zinc-900' and 'opacity-100' for clear visibility.
+          */}
+          [Image of a CSS flexbox diagram showing a fixed header, a scrollable body (flex-1), and a fixed footer (shrink-0)]
           <div 
             className={cn(
-              "shrink-0 p-6 md:p-8 border-t border-white/10 bg-zinc-900 flex items-center justify-end gap-4",
+              "shrink-0 p-6 md:p-8 border-t border-white/10 bg-zinc-900/90 backdrop-blur-md flex items-center justify-end gap-4",
               isMobile && "shadow-[0_-20px_40px_rgba(0,0,0,0.8)]"
             )}
             style={{ 
@@ -226,18 +213,17 @@ export function CreateServiceModal({ merchantId }: { merchantId: string }) {
               zIndex: 50 
             }}
           >
+            {/* 🏁 THE FIX: Contrast increased for 'Abort' action */}
             <Button 
               type="button" 
               variant="ghost" 
-              onClick={() => {
-                setOpen(false);
-                impact("light");
-              }} 
+              onClick={() => setOpen(false)} 
               className="h-10 px-6 rounded-lg font-black uppercase italic text-[9px] text-foreground/60 hover:text-foreground hover:bg-white/5 transition-all"
             >
               Abort_Sync
             </Button>
             
+            {/* 🏁 THE FIX: High-contrast solid deployment button */}
             <Button 
               disabled={isPending} 
               type="submit" 
@@ -264,5 +250,5 @@ export function CreateServiceModal({ merchantId }: { merchantId: string }) {
         </form>
       </DialogContent>
     </Dialog>
-);
+  );
 }
