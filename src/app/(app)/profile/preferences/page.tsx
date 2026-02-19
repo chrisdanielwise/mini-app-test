@@ -26,46 +26,53 @@ import { Badge } from "@/components/ui/badge";
 
 /**
  * 🛰️ CONFIGURATION
- * force-dynamic: Prevents Next.js from trying to pre-render this page during build time.
+ * force-dynamic: Directs Render/Next.js to skip static generation for this node.
  */
 export const dynamic = "force-dynamic";
 
 export default function UserPreferencesPage() {
-  const { user, isAuthenticated, isLocked, isStaff } = useInstitutionalAuth();
-  const { impact } = useHaptics();
-  
-  const { 
-    isMobile, 
-    isTablet, 
-    isDesktop, 
-    isPortrait, 
-    safeArea, 
-    isReady 
-  } = useDeviceContext();
-
-  const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [mounted, setMounted] = useState(false);
 
-  /**
-   * 🛡️ HYDRATION GUARD
-   * Ensures that the component only renders logic after mounting on the client.
-   * This prevents the "useContext" null error during Render's build process.
-   */
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  /**
+   * 🛡️ HYDRATION SHIELD
+   * This prevents context hooks from firing during the Render build phase.
+   * Only the client browser will ever see the <PreferencesContent />.
+   */
+  if (!mounted) {
+    return <LoadingScreen message="STABILIZING_IDENTITY_NODE..." />;
+  }
+
+  return <PreferencesContent />;
+}
+
+function PreferencesContent() {
+  // 🛰️ Hooks are now safe because this component only mounts in the browser.
+  const auth = useInstitutionalAuth();
+  const haptics = useHaptics();
+  const device = useDeviceContext();
+
+  // Safely extract values from hooks
+  const { user, isAuthenticated, isLocked, isStaff } = auth || {};
+  const { impact } = haptics || {};
+  const { isDesktop, isTablet, isPortrait, safeArea, isReady } = device || {};
+
+  const [hapticsEnabled, setHapticsEnabled] = useState(true);
+
+  useEffect(() => {
     const saved = localStorage.getItem("user_haptics_enabled");
     if (saved !== null) setHapticsEnabled(saved === "true");
   }, []);
 
-  if (!mounted || !isReady || isLocked) {
-    return <LoadingScreen message="SYNCING_HARDWARE_NODES..." />;
-  }
-
+  if (!isReady || isLocked) return <LoadingScreen message="SYNCING_HARDWARE_NODES..." />;
   if (!isAuthenticated) return <IdentityNullFallback />;
 
   const toggleHaptics = (checked: boolean) => {
     setHapticsEnabled(checked);
-    if (checked) impact("medium");
+    if (checked && impact) impact("medium");
     localStorage.setItem("user_haptics_enabled", checked.toString());
   };
 
@@ -77,7 +84,7 @@ export default function UserPreferencesPage() {
       {/* 🛡️ FIXED HUD: Stationary Header */}
       <header 
         className="px-5 py-6 md:px-8 md:py-8 rounded-b-2xl border-b border-white/5 bg-zinc-950/40 backdrop-blur-xl shadow-2xl relative overflow-hidden transition-all"
-        style={{ paddingTop: `calc(${safeArea.top}px * 0.5 + 1rem)` }}
+        style={{ paddingTop: `calc(${(safeArea?.top || 0)}px * 0.5 + 1rem)` }}
       >
         <div className="space-y-1.5 relative z-10">
           <div className="flex items-center gap-2 opacity-10 italic">
@@ -95,7 +102,7 @@ export default function UserPreferencesPage() {
       {/* 🚀 INDEPENDENT TACTICAL VOLUME */}
       <main className="flex-1 px-5 py-8 space-y-8 pb-32">
         
-        {/* --- TACTILE PROTOCOL: High Density Grid --- */}
+        {/* --- TACTILE PROTOCOL --- */}
         <section className="space-y-3">
           <h2 className="text-[7.5px] font-black uppercase tracking-[0.3em] text-muted-foreground/20 italic ml-1">Tactile_Protocol</h2>
           <div className={gridLayout}>
@@ -120,7 +127,7 @@ export default function UserPreferencesPage() {
           </div>
         </section>
 
-        {/* --- IDENTITY TELEMETRY: Clinical Module --- */}
+        {/* --- IDENTITY TELEMETRY --- */}
         <section className="space-y-3">
           <h2 className="text-[7.5px] font-black uppercase tracking-[0.3em] text-muted-foreground/20 italic ml-1">Identity_Telemetry</h2>
           <div className="rounded-xl border border-white/5 bg-zinc-950/40 overflow-hidden shadow-2xl">
@@ -172,7 +179,6 @@ export default function UserPreferencesPage() {
          </p>
       </footer>
 
-      {/* 📐 STATIONARY GRID ANCHOR */}
       <div className="fixed inset-0 pointer-events-none z-[-1] opacity-[0.015] bg-[url('/assets/grid.svg')] bg-center" />
     </div>
   );
